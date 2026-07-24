@@ -46,3 +46,20 @@ func TestParseSecretRefsPlainShape(t *testing.T) {
 		t.Fatalf("got %v", got)
 	}
 }
+
+func TestParseSecretRefsMultiKeyList(t *testing.T) {
+	in := "spec:\n  data:\n    - secretKey: FOO_KEY\n      remoteRef:\n        key: foo\n    - secretKey: BAR_KEY\n      remoteRef:\n        key: bar\n"
+	got := ParseSecretRefs(in)
+	want := map[string]string{"FOO_KEY": "foo", "BAR_KEY": "bar"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v want %v", got, want)
+	}
+}
+
+func TestParseSecretRefsMalformedNoPanic(t *testing.T) {
+	in := "not: [valid: yaml: -"
+	got := ParseSecretRefs(in)
+	if len(got) != 0 {
+		t.Fatalf("got %v, want empty map", got)
+	}
+}

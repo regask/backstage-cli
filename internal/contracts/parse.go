@@ -51,8 +51,11 @@ func MergeMaps(base, overlay map[string]string) map[string]string {
 }
 
 var (
+	// Leading \s* absorbs indentation: unlike the TS source these lines
+	// aren't pre-trimmed, so the literal `^-?\s*` alone won't match indented list items.
 	reSecretKey = regexp.MustCompile(`^\s*-?\s*secretKey:\s*(.+)$`)
 	reKey       = regexp.MustCompile(`^\s*key:\s*(.+)$`)
+	reRemoteRef = regexp.MustCompile(`^remoteRef:\s*$`)
 )
 
 // ParseSecretRefs parses an external-secrets overlay into secretKey ->
@@ -68,8 +71,9 @@ func ParseSecretRefs(text string) map[string]string {
 			sawRemoteRef = false
 			continue
 		}
-		if strings.Contains(line, "remoteRef") {
+		if reRemoteRef.MatchString(strings.TrimSpace(line)) {
 			sawRemoteRef = true
+			continue
 		}
 		if m := reKey.FindStringSubmatch(line); m != nil && pending != "" && sawRemoteRef {
 			out[pending] = stripQuotes(m[1])
