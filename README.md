@@ -53,6 +53,7 @@ Opens an interactive k9s-style terminal UI (requires `bsr login` first).
 - **Approvals**: approval requests list → detail with release link and task backlink.
 
 **Keys:**
+- `Tab` switch between services and approvals
 - `:` command bar (`services`, `approvals`, `quit`)
 - `/` filter (current view)
 - `↑/↓` or `j/k` navigate
