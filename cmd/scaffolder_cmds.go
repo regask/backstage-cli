@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/regask/backstage-cli/internal/scaffolder"
 	"github.com/spf13/cobra"
@@ -84,12 +85,20 @@ var releaseCmd = &cobra.Command{
 	},
 }
 
+// cherryPickBranches are the only release branches cherry-pick may target.
+var cherryPickBranches = []string{"release/preprod", "release/prod"}
+
 var cherryPickCmd = &cobra.Command{
 	Use:   "cherry-pick",
-	Short: "Cherry-pick a tag onto a release branch (one PR per repo)",
+	Short: "Cherry-pick a ticket onto a release branch (one PR per repo)",
 	RunE: func(c *cobra.Command, _ []string) error {
-		if cpTag == "" || cpBranch == "" {
-			return fmt.Errorf("--tag and --branch are required")
+		if cpTag == "" {
+			return fmt.Errorf("--tag is required (a ticket reference, e.g. REG-12345)")
+		}
+		switch cpBranch {
+		case "release/preprod", "release/prod":
+		default:
+			return fmt.Errorf("--branch must be one of: %s", strings.Join(cherryPickBranches, ", "))
 		}
 		return runTemplate("template:default/cherry-pick", map[string]any{"tag": cpTag, "branch": cpBranch})
 	},
@@ -102,7 +111,7 @@ func init() {
 	releaseCmd.Flags().StringVar(&releaseVersion, "version", "", "override shared-actions release version (prod only)")
 	releaseCmd.Flags().StringSliceVar(&releaseInclude, "include-services", nil, "only release these services (comma-separated; mutually exclusive with --exclude-services)")
 	releaseCmd.Flags().StringSliceVar(&releaseExclude, "exclude-services", nil, "release all except these services (comma-separated; mutually exclusive with --include-services)")
-	cherryPickCmd.Flags().StringVar(&cpTag, "tag", "", "tag to cherry-pick (required)")
-	cherryPickCmd.Flags().StringVar(&cpBranch, "branch", "", "target release branch (required)")
+	cherryPickCmd.Flags().StringVar(&cpTag, "tag", "", "ticket reference to cherry-pick, e.g. REG-12345 (required)")
+	cherryPickCmd.Flags().StringVar(&cpBranch, "branch", "", "target release branch: release/preprod or release/prod (required)")
 	RootCmd.AddCommand(promoteCmd, releaseCmd, cherryPickCmd)
 }

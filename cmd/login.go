@@ -32,7 +32,13 @@ var loginCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		flow := &auth.LoginFlow{Portal: loginURL, OpenBrowser: openBrowser}
+		flow := &auth.LoginFlow{
+			Portal:      loginURL,
+			OpenBrowser: openBrowser,
+			Announce: func(code string) {
+				fmt.Printf("Confirm this code in your browser: %s\n", code)
+			},
+		}
 		fmt.Println("Opening browser to sign in…")
 		cfg, err := flow.Run(context.Background())
 		if err != nil {

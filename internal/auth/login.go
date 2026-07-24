@@ -8,12 +8,17 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
 type LoginFlow struct {
 	Portal      string
 	OpenBrowser func(url string) error
+	// Announce, if set, is called with the pairing code before the browser
+	// opens, so the caller can print it for the user to match on the consent
+	// screen. Keeps this package free of terminal output.
+	Announce func(code string)
 }
 
 // extractRedirectURI pulls the redirect_uri query param out of a start URL
@@ -36,6 +41,16 @@ func randomState() string {
 	return hex.EncodeToString(b)
 }
 
+// pairingCode returns a short human-matchable code the user compares between
+// their terminal and the browser consent screen.
+func pairingCode() string {
+	b := make([]byte, 3)
+	if _, err := rand.Read(b); err != nil {
+		return "CLICODE"
+	}
+	return strings.ToUpper(hex.EncodeToString(b))
+}
+
 // Run starts an ephemeral loopback server, opens the browser to the portal's
 // /cli-auth handshake page with the loopback as redirect_uri, and blocks until
 // the callback delivers the token (or ctx is cancelled). A random state ties
@@ -49,6 +64,7 @@ func (f *LoginFlow) Run(ctx context.Context) (*Config, error) {
 
 	redirect := fmt.Sprintf("http://%s/callback", ln.Addr().String())
 	state := randomState()
+	code := pairingCode()
 	result := make(chan *Config, 1)
 	errc := make(chan error, 1)
 
@@ -80,9 +96,12 @@ func (f *LoginFlow) Run(ctx context.Context) (*Config, error) {
 	go srv.Serve(ln)
 	defer srv.Close()
 
+	if f.Announce != nil {
+		f.Announce(code)
+	}
 	startURL := fmt.Sprintf(
-		"%s/cli-auth?redirect_uri=%s&state=%s",
-		f.Portal, url.QueryEscape(redirect), url.QueryEscape(state),
+		"%s/cli-auth?redirect_uri=%s&state=%s&code=%s",
+		f.Portal, url.QueryEscape(redirect), url.QueryEscape(state), url.QueryEscape(code),
 	)
 	if err := f.OpenBrowser(startURL); err != nil {
 		return nil, err

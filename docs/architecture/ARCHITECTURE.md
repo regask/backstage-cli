@@ -74,7 +74,7 @@ redirect targets, so a token is never handed off-machine.
 | `find-ticket <TICKET...>` | `POST /deploy-management/ticket-lookup` |
 | `query-approval <link-or-id>` | `GET /approvals/requests/:id` — detail + release link (`resultUrl`) + task backlink |
 | `approve <link-or-id> [--reject]` | `GET` detail, confirm, `POST .../approve`\|`/reject` |
-| `promote --to-env <env> --service <svc…>` / `release --env [--include-services\|--exclude-services]` / `cherry-pick --tag --branch` | launch scaffolder templates (`regask:github:promote`, `release:*`, `cherry-pick:*`), stream log. promote takes one+ required services; release's include/exclude are mutually exclusive |
+| `promote --to-env <env> --service <svc…>` / `release --env [--include-services\|--exclude-services]` / `cherry-pick --tag <TICKET> --branch <release/preprod\|release/prod>` | launch scaffolder templates (`regask:github:promote`, `release:*`, `cherry-pick:*`), stream log. promote takes one+ required services; release's include/exclude are mutually exclusive; cherry-pick's `--tag` is a ticket ref (e.g. REG-12345) and `--branch` is restricted to `release/preprod`/`release/prod` |
 
 Cross-cutting: `--json` on every command; `--fresh` bypasses the server TTL
 cache; non-zero exit on failure / rejected approval / failed task.

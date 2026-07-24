@@ -32,7 +32,8 @@ bsr promote --to-env staging --service a,b         # promote one or more service
 bsr release --env prod                             # release an environment (all services)
 bsr release --env prod --include-services a,b      # only these services (XOR --exclude-services)
 bsr release --env prod --exclude-services c        # all except these services
-bsr cherry-pick --tag v1.2.3 --branch release/1.2  # cherry-pick a tag onto a release branch
+bsr cherry-pick --tag REG-12345 --branch release/preprod  # cherry-pick a ticket onto a release branch
+                                                          # --branch: release/preprod | release/prod
 ```
 
 - Add `--json` to any command for machine-readable output.
