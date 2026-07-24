@@ -16,8 +16,10 @@ authenticated as the real Backstage user.
 **Naming:** the repo/folder and Go module are `backstage-cli`
 (`github.com/regask/backstage-cli`), following the Go convention of module name
 = directory. The compiled **binary and Homebrew install stay `backstage-regask`**
-(the Homebrew formula also installs a `bsr` symlink) — the product identity is
-`backstage-regask`, the code lives under `backstage-cli`.
+— the product identity is `backstage-regask`, the code lives under
+`backstage-cli`. The short `bsr` is a shell alias
+(`alias bsr=backstage-regask`), since the GoReleaser Homebrew **cask** links the
+binary by its own name rather than adding a second symlink.
 
 ## Key decisions
 
@@ -95,6 +97,6 @@ Remaining login hardening (login timeout on a stalled browser flow) is still ope
 ## Distribution
 
 Push to `main` → release-please computes semver + tags + GitHub Release →
-GoReleaser cross-compiles (macOS arm64/x64, Linux) and pushes the formula to
-`regask/homebrew-tap`. Users install with `brew install regask/tap/backstage-regask`
+GoReleaser cross-compiles (macOS arm64/x64, Linux) and pushes a Homebrew **cask**
+to `regask/homebrew-tap`. Users install with `brew install regask/tap/backstage-regask`
 and update with `brew upgrade`. Requires the `HOMEBREW_TAP_TOKEN` CI secret.

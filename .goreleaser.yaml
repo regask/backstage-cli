@@ -12,7 +12,7 @@ builds:
 archives:
   - formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
-brews:
+homebrew_casks:
   - name: backstage-regask
     repository:
       owner: regask
@@ -20,8 +20,5 @@ brews:
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     homepage: "https://github.com/regask/backstage-cli"
     description: "Regask Backstage from your terminal"
-    install: |
-      bin.install "backstage-regask"
-      bin.install_symlink "backstage-regask" => "bsr"
 checksum:
   name_template: "checksums.txt"
