@@ -66,7 +66,7 @@ token on the callback → persist to `~/.config/backstage-regask/config.json`
 | `find-ticket <TICKET...>` | `POST /deploy-management/ticket-lookup` |
 | `query-approval <link-or-id>` | `GET /approvals/requests/:id` — detail + release link (`resultUrl`) + task backlink |
 | `approve <link-or-id> [--reject]` | `GET` detail, confirm, `POST .../approve`\|`/reject` |
-| `promote --to-env <env> [--service]` / `release --env` / `cherry-pick --tag --branch` | launch scaffolder templates (`regask:github:promote`, `release:*`, `cherry-pick:*`), stream log |
+| `promote --to-env <env> --service <svc…>` / `release --env [--include-services\|--exclude-services]` / `cherry-pick --tag --branch` | launch scaffolder templates (`regask:github:promote`, `release:*`, `cherry-pick:*`), stream log. promote takes one+ required services; release's include/exclude are mutually exclusive |
 
 Cross-cutting: `--json` on every command; `--fresh` bypasses the server TTL
 cache; non-zero exit on failure / rejected approval / failed task.
