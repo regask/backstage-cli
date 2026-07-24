@@ -24,6 +24,16 @@ type secretRow struct {
 	Value     string `json:"value,omitempty"`
 }
 
+// vaultByEnv is the default Azure Key Vault per environment, mirroring the
+// portal's SECRET_VAULT_BY_ENV (packages/app/src/modules/configuration/secretsConfig.ts).
+// --vault overrides it.
+var vaultByEnv = map[string]string{
+	"development": "regask-k8s-dev",
+	"staging":     "regask-k8s-qa",
+	"pre-prod":    "regask-k8s-pre-prod",
+	"production":  "regask-k8s-prod",
+}
+
 var checkSecretsCmd = &cobra.Command{
 	Use:   "check-secrets <service>",
 	Short: "Show a service's secret refs (values resolved via `az`, masked by default)",
@@ -36,8 +46,13 @@ var checkSecretsCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		if secretsReveal && secretsVault == "" {
-			return fmt.Errorf("--vault is required with --reveal")
+		// Default the vault from the env; --vault overrides.
+		vault := secretsVault
+		if vault == "" {
+			vault = vaultByEnv[secretsEnv]
+		}
+		if secretsReveal && vault == "" {
+			return fmt.Errorf("no default vault for env %q; pass --vault", secretsEnv)
 		}
 		ctx := context.Background()
 		ref, err := resolveServiceRef(ctx, cl, args[0], freshFlag)
@@ -62,7 +77,7 @@ var checkSecretsCmd = &cobra.Command{
 		for _, key := range contracts.SortedKeys(refs) {
 			row := secretRow{SecretKey: key, VaultKey: refs[key]}
 			if secretsReveal {
-				val, err := runner.GetSecret(ctx, secretsVault, refs[key])
+				val, err := runner.GetSecret(ctx, vault, refs[key])
 				if err != nil {
 					return err
 				}
@@ -86,7 +101,7 @@ var checkSecretsCmd = &cobra.Command{
 func init() {
 	checkSecretsCmd.Flags().StringVar(&secretsEnv, "env", "", "environment (required)")
 	checkSecretsCmd.Flags().BoolVar(&secretsReveal, "reveal", false, "resolve and print secret values via az")
-	checkSecretsCmd.Flags().StringVar(&secretsVault, "vault", "", "Azure Key Vault name (required with --reveal)")
+	checkSecretsCmd.Flags().StringVar(&secretsVault, "vault", "", "override the Azure Key Vault name (defaults per env, e.g. production→regask-k8s-prod)")
 	checkSecretsCmd.Flags().BoolVar(&freshFlag, "fresh", false, "bypass server cache")
 	RootCmd.AddCommand(checkSecretsCmd)
 }

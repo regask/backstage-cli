@@ -72,7 +72,7 @@ redirect targets, so a token is never handed off-machine.
 |---|---|
 | `check-deploy <svc> [--env]` | `GET /deploy-management/matrix`, `/service/releases` |
 | `check-environment <svc> --env` | effective env vars from `/deploy-management/service/overlays` (base ⊕ overlay) |
-| `check-secrets <svc> --env [--reveal] [--vault]` | secret refs from overlay → local `az keyvault secret show` (masked by default) |
+| `check-secrets <svc> --env [--reveal] [--vault]` | secret refs from overlay → local `az keyvault secret show` (masked by default). Vault defaults per env (`SECRET_VAULT_BY_ENV`: dev→regask-k8s-dev, staging→regask-k8s-qa, pre-prod→regask-k8s-pre-prod, production→regask-k8s-prod); `--vault` overrides |
 | `find-ticket <TICKET...>` | `POST /deploy-management/ticket-lookup` |
 | `query-approval <link-or-id>` | `GET /approvals/requests/:id` — detail + release link (`resultUrl`) + task backlink |
 | `approve <link-or-id> [--reject]` | `GET` detail, confirm, `POST .../approve`\|`/reject` |
