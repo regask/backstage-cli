@@ -40,7 +40,11 @@ var checkSecretsCmd = &cobra.Command{
 			return fmt.Errorf("--vault is required with --reveal")
 		}
 		ctx := context.Background()
-		ov, err := cl.Overlays(ctx, args[0], freshFlag)
+		ref, err := resolveServiceRef(ctx, cl, args[0], freshFlag)
+		if err != nil {
+			return err
+		}
+		ov, err := cl.Overlays(ctx, ref, freshFlag)
 		if err != nil {
 			return err
 		}

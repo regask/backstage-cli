@@ -25,7 +25,12 @@ var checkEnvironmentCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		ov, err := cl.Overlays(context.Background(), args[0], freshFlag)
+		ctx := context.Background()
+		ref, err := resolveServiceRef(ctx, cl, args[0], freshFlag)
+		if err != nil {
+			return err
+		}
+		ov, err := cl.Overlays(ctx, ref, freshFlag)
 		if err != nil {
 			return err
 		}
