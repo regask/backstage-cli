@@ -158,7 +158,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// hidden approvals list underneath the detail pane. Skip the global
 		// and action key switch entirely and fall through to delegate below;
 		// only ctrl+c remains a hard-quit escape hatch.
-		capturing := (a.active == "services" && a.services.FilterActive()) ||
+		capturing := (a.active == "services" && (a.services.FilterActive() || a.services.DetailActive())) ||
 			(a.active == "approvals" && a.approvals.DetailActive())
 		if capturing {
 			if m.Type == tea.KeyCtrlC {

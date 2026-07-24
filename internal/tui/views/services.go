@@ -8,21 +8,34 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/regask/backstage-cli/internal/contracts"
 	"github.com/regask/backstage-cli/internal/tui/ui"
 )
 
-// Services is the deploy-matrix view: one table row per (service, env), with
-// a "/"-toggled filter over service name/ref.
+// matrixEnvs is the fixed column order for the deploy matrix, mapped to the
+// backend's env keys.
+var matrixEnvs = []struct{ label, key string }{
+	{"DEV", "development"},
+	{"STG", "staging"},
+	{"PRE-PROD", "pre-prod"},
+	{"PROD", "production"},
+}
+
+// Services is the deploy-matrix view: one table row per service, one column
+// per environment, with a "/"-toggled filter over service name/ref and an
+// Enter-toggled detail pane for the selected service's per-env sync/health.
 type Services struct {
 	theme    ui.Theme
 	keys     ui.Keys
 	table    table.Model
 	filter   textinput.Model
 	filterOn bool
+	detail   viewport.Model
+	showing  bool
 	rows     []contracts.MatrixRow // full, unfiltered
-	shown    []contracts.MatrixRow // after filter (parallel to table rows)
+	shown    []contracts.MatrixRow // after filter (1:1 with table rows)
 	w, h     int
 }
 
@@ -33,21 +46,26 @@ func NewServices(theme ui.Theme, keys ui.Keys) Services {
 	st := table.DefaultStyles()
 	st.Selected = theme.Selected
 	st.Header = theme.TableHeader
-	t := table.New(table.WithColumns([]table.Column{
-		{Title: "SERVICE", Width: 24},
-		{Title: "ENV", Width: 12},
-		{Title: "VERSION", Width: 20},
-		{Title: "SYNC", Width: 10},
-		{Title: "HEALTH", Width: 10},
-	}), table.WithFocused(true), table.WithStyles(st))
-	return Services{theme: theme, keys: keys, table: t, filter: ti}
+	cols := []table.Column{{Title: "SERVICE", Width: 28}}
+	for _, e := range matrixEnvs {
+		cols = append(cols, table.Column{Title: e.label, Width: 16})
+	}
+	t := table.New(table.WithColumns(cols), table.WithFocused(true), table.WithStyles(st))
+	return Services{theme: theme, keys: keys, table: t, filter: ti, detail: viewport.New(0, 0)}
 }
 
 // SetSize records the body height allotted to this view (App.View's total
 // screen height minus its 1-line header and 1-line footer) and sizes the
-// table to fill it, minus the lines this view's own View() renders on top.
+// table/detail viewport to fill it, minus the lines this view's own View()
+// renders on top.
 func (s Services) SetSize(w, h int) Services {
 	s.w, s.h = w, h
+	s.detail.Width = w
+	if h > 0 {
+		s.detail.Height = h
+	} else {
+		s.detail.Height = 0
+	}
 	return s.resize()
 }
 
@@ -83,22 +101,11 @@ func (s Services) applyFilter() Services {
 			continue
 		}
 		s.shown = append(s.shown, r)
-		envs := make([]string, 0, len(r.Envs))
-		for e := range r.Envs {
-			envs = append(envs, e)
+		row := table.Row{r.ServiceName}
+		for _, e := range matrixEnvs {
+			row = append(row, dash(r.Envs[e.key].Tag))
 		}
-		sort.Strings(envs)
-		// One table row per (service,env); first env carries the service name.
-		for i, e := range envs {
-			name := r.ServiceName
-			if i > 0 {
-				name = ""
-			}
-			d := r.Envs[e]
-			sync := s.theme.StatusStyle(d.SyncStatus).Render(dash(d.SyncStatus))
-			health := s.theme.StatusStyle(d.HealthStatus).Render(dash(d.HealthStatus))
-			trows = append(trows, table.Row{name, e, dash(d.Tag), sync, health})
-		}
+		trows = append(trows, row)
 	}
 	s.table.SetRows(trows)
 	return s
@@ -111,24 +118,18 @@ func dash(v string) string {
 	return v
 }
 
-// Selected returns the service under the cursor (maps table cursor → shown[]).
+// Selected returns the service under the cursor (1:1 with the table rows —
+// unlike the old fan-out layout, one table row is always exactly one
+// service).
 func (s Services) Selected() (contracts.MatrixRow, bool) {
 	if len(s.shown) == 0 {
 		return contracts.MatrixRow{}, false
 	}
-	// Walk shown[] counting emitted rows until we reach the table cursor.
-	cur := s.table.Cursor()
-	n := 0
-	for _, r := range s.shown {
-		// A service with no envs emits zero table rows (see applyFilter); it
-		// contributes nothing to the cursor mapping and is never selectable.
-		rowsForSvc := len(r.Envs)
-		if cur < n+rowsForSvc {
-			return r, true
-		}
-		n += rowsForSvc
+	i := s.table.Cursor()
+	if i < 0 || i >= len(s.shown) {
+		i = 0
 	}
-	return s.shown[len(s.shown)-1], true
+	return s.shown[i], true
 }
 
 // FilterActive reports whether the "/" filter input is currently capturing
@@ -137,8 +138,45 @@ func (s Services) Selected() (contracts.MatrixRow, bool) {
 // "p" inside a service name).
 func (s Services) FilterActive() bool { return s.filterOn }
 
+// DetailActive reports whether the Enter detail viewport is open, so App can
+// route input (scrolling, esc) straight to it and skip global/action key
+// bindings that would otherwise fire against the hidden table underneath.
+func (s Services) DetailActive() bool { return s.showing }
+
+// detailText renders the selected service's ref plus, for each env it's
+// deployed to (sorted), its tag and sync/health colored via
+// theme.StatusStyle — free text in a viewport, so ANSI color is fine here
+// (unlike the table, where embedding it breaks column alignment).
+func (s Services) detailText(r contracts.MatrixRow) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s\n\n", r.ServiceRef)
+	envs := make([]string, 0, len(r.Envs))
+	for e := range r.Envs {
+		envs = append(envs, e)
+	}
+	sort.Strings(envs)
+	for _, e := range envs {
+		d := r.Envs[e]
+		sync := s.theme.StatusStyle(d.SyncStatus).Render(dash(d.SyncStatus))
+		health := s.theme.StatusStyle(d.HealthStatus).Render(dash(d.HealthStatus))
+		fmt.Fprintf(&b, "%s: %s  sync=%s  health=%s\n", e, dash(d.Tag), sync, health)
+		if d.ArgocdURL != "" {
+			fmt.Fprintf(&b, "  %s\n", d.ArgocdURL)
+		}
+	}
+	return b.String()
+}
+
 func (s Services) Update(msg tea.Msg) (Services, tea.Cmd) {
 	var cmd tea.Cmd
+	if s.showing {
+		if km, ok := msg.(tea.KeyMsg); ok && km.String() == "esc" {
+			s.showing = false
+			return s, nil
+		}
+		s.detail, cmd = s.detail.Update(msg)
+		return s, cmd
+	}
 	if s.filterOn {
 		switch m := msg.(type) {
 		case tea.KeyMsg:
@@ -152,16 +190,28 @@ func (s Services) Update(msg tea.Msg) (Services, tea.Cmd) {
 		s.filter, cmd = s.filter.Update(msg)
 		return s.applyFilter(), cmd
 	}
-	if km, ok := msg.(tea.KeyMsg); ok && key.Matches(km, s.keys.Filter) {
-		s.filterOn = true
-		s.filter.Focus()
-		return s.resize(), textinput.Blink
+	if km, ok := msg.(tea.KeyMsg); ok {
+		if key.Matches(km, s.keys.Filter) {
+			s.filterOn = true
+			s.filter.Focus()
+			return s.resize(), textinput.Blink
+		}
+		if km.String() == "enter" {
+			if sel, ok := s.Selected(); ok {
+				s.detail.SetContent(s.detailText(sel))
+				s.showing = true
+				return s, nil
+			}
+		}
 	}
 	s.table, cmd = s.table.Update(msg)
 	return s, cmd
 }
 
 func (s Services) View() string {
+	if s.showing {
+		return s.detail.View()
+	}
 	head := s.theme.TableHeader.Render(fmt.Sprintf(" %d services ", len(s.shown)))
 	body := s.table.View()
 	if s.filterOn {
