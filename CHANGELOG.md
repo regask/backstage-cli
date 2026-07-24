@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1](https://github.com/regask/backstage-cli/compare/v1.0.0...v1.0.1) (2026-07-24)
+
+
+### Bug Fixes
+
+* **contracts:** align matrix/overlays/ticket-lookup + whoami with live backend shapes ([328843f](https://github.com/regask/backstage-cli/commit/328843ff5d28d0ff84a8003145bf586f5b32bd68))
+* wire --version, back off scaffolder poll loop, login timeout, unpredictable CSRF state ([4992ed9](https://github.com/regask/backstage-cli/commit/4992ed978ab4937a5a43fce5db7efd59b1e58b4b))
+
 ## 1.0.0 (2026-07-24)
 
 
