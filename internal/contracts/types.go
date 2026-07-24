@@ -113,19 +113,26 @@ func (a ApprovalRequest) DraftReleaseURLs() []string {
 		return nil
 	}
 	var p struct {
-		Owner    string `json:"owner"`
-		Repo     string `json:"repo"`
-		Tag      string `json:"tag"`
-		Releases []struct {
-			Owner string `json:"owner"`
-			Repo  string `json:"repo"`
-			Tag   string `json:"tag"`
+		DraftReleaseURL string `json:"draftReleaseUrl"`
+		Owner           string `json:"owner"`
+		Repo            string `json:"repo"`
+		Tag             string `json:"tag"`
+		Releases        []struct {
+			DraftReleaseURL string `json:"draftReleaseUrl"`
+			Owner           string `json:"owner"`
+			Repo            string `json:"repo"`
+			Tag             string `json:"tag"`
 		} `json:"releases"`
 	}
 	if err := json.Unmarshal(a.Payload, &p); err != nil {
 		return nil
 	}
-	rel := func(owner, repo, tag string) string {
+	// Prefer the exact draft URL the backend recorded; else build from
+	// owner/repo/tag; else point at the repo's releases page.
+	rel := func(url, owner, repo, tag string) string {
+		if url != "" {
+			return url
+		}
 		if owner == "" || repo == "" {
 			return ""
 		}
@@ -135,11 +142,11 @@ func (a ApprovalRequest) DraftReleaseURLs() []string {
 		return fmt.Sprintf("https://github.com/%s/%s/releases", owner, repo)
 	}
 	var out []string
-	if u := rel(p.Owner, p.Repo, p.Tag); u != "" {
+	if u := rel(p.DraftReleaseURL, p.Owner, p.Repo, p.Tag); u != "" {
 		out = append(out, u)
 	}
 	for _, r := range p.Releases {
-		if u := rel(r.Owner, r.Repo, r.Tag); u != "" {
+		if u := rel(r.DraftReleaseURL, r.Owner, r.Repo, r.Tag); u != "" {
 			out = append(out, u)
 		}
 	}
