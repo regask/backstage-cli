@@ -40,6 +40,29 @@ bsr cherry-pick --tag REG-12345 --branch release/preprod  # cherry-pick a ticket
 - Add `--json` to any command for machine-readable output.
 - Add `--fresh` to a data command to bypass the server cache.
 
+## TUI
+
+```bash
+bsr ui
+```
+
+Opens an interactive k9s-style terminal UI (requires `bsr login` first).
+
+**V1 views:**
+- **Services**: deploy matrix (version + ArgoCD sync/health by environment), filterable by service name.
+- **Approvals**: approval requests list → detail with release link and task backlink.
+
+**Keys:**
+- `:` command bar (`services`, `approvals`, `quit`)
+- `/` filter (current view)
+- `↑/↓` or `j/k` navigate
+- `Enter` open (detail/drill-down)
+- `p` promote (services) / `a` approve (approvals)
+- `r` release (services) / `x` reject (approvals)
+- `Ctrl-R` refresh (hard-bypass caches)
+- `?` help
+- `q` quit
+
 ## Documentation
 
 Architecture and design decisions: [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md).

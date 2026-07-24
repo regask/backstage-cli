@@ -47,6 +47,26 @@ internal/
   render/            --json vs table output helper
 ```
 
+### TUI (`bsr ui`)
+
+The interactive terminal UI is built with **Bubble Tea** (event-driven TUI framework),
+**Lipgloss** (styling), and **Bubbles** (reusable components).
+
+**Architecture:** `internal/tui` holds the root App model, global state, messages,
+and data-fetching / action cmds. `internal/tui/ui` is a leaf package containing
+`Theme` and `Keys` (to break the `tui` ↔ `views` import cycle). `internal/tui/views`
+holds the presentational view models for services and approvals. `cmd/ui.go` launches
+the app.
+
+**Reuse:** The TUI reuses `internal/client` (`Matrix`, `GetApproval`/`list`,
+`DecideApproval`) and `internal/scaffolder` (`Launch`) — no backend changes.
+
+**V1 views:**
+- **Services**: deploy matrix (version, sync/health per environment), filterable.
+- **Approvals**: list with filter, drill-down to detail + release link + task backlink.
+
+**V2 deferred:** environment/secrets/tickets views, global search, mouse support.
+
 Design intent: thin commands, focused single-responsibility packages, all
 dependencies (HTTP transport, token store, `az`, browser-open) injectable so
 commands are unit-tested without side effects.
