@@ -199,6 +199,15 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(m, a.keys.Command):
 				a.cmdBar.Focus()
 				return a, nil
+			case key.Matches(m, a.keys.SwitchView):
+				if a.active == "approvals" {
+					a.active = "services"
+				} else {
+					a.active = "approvals"
+				}
+				a.banner = ""
+				a.bannerErr = false
+				return a, a.refresh()
 			case key.Matches(m, a.keys.Help):
 				a.showHelp = !a.showHelp
 				return a, nil

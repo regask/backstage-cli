@@ -202,6 +202,55 @@ func TestAppQuitKeyDuringServicesFilterDoesNotQuit(t *testing.T) {
 	}
 }
 
+// TestAppTabSwitchesView: Tab is a global key that toggles the active view
+// between services and approvals, without going through the command bar.
+func TestAppTabSwitchesView(t *testing.T) {
+	a := testApp()
+	m, _ := a.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	a = m.(App)
+	if a.active != "services" {
+		t.Fatalf("active = %q, want services", a.active)
+	}
+
+	m, _ = a.Update(tea.KeyMsg{Type: tea.KeyTab})
+	a = m.(App)
+	if a.active != "approvals" {
+		t.Fatalf("active = %q, want approvals", a.active)
+	}
+
+	m, _ = a.Update(tea.KeyMsg{Type: tea.KeyTab})
+	a = m.(App)
+	if a.active != "services" {
+		t.Fatalf("active = %q, want services", a.active)
+	}
+}
+
+// TestAppTabIgnoredDuringFilter: while the services "/" filter is capturing
+// keystrokes, Tab must not be hijacked by the global switch-view binding —
+// it belongs to the filter input (or is a no-op there), and the active view
+// must stay unchanged.
+func TestAppTabIgnoredDuringFilter(t *testing.T) {
+	a := testApp()
+	m, _ := a.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	a = m.(App)
+	a.services = a.services.SetRows([]contracts.MatrixRow{
+		{ServiceRef: "component:default/quickstart", ServiceName: "quickstart",
+			Envs: map[string]contracts.EnvDeploy{"production": {Tag: "v1"}}},
+	})
+
+	m, _ = a.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("/")})
+	a = m.(App)
+	if !a.services.FilterActive() {
+		t.Fatalf("expected filter to be active after '/'")
+	}
+
+	m, _ = a.Update(tea.KeyMsg{Type: tea.KeyTab})
+	a = m.(App)
+	if a.active != "services" {
+		t.Fatalf("expected Tab during filter to not switch view, active = %q", a.active)
+	}
+}
+
 // TestAppPromoteEmptyEnvKeepsPromptOpen: pressing Enter on the promote
 // prompt with an empty (or whitespace-only) value must not launch anything;
 // the prompt stays active for the user to type a value.
