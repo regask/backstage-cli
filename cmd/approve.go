@@ -45,7 +45,11 @@ var approveCmd = &cobra.Command{
 		if err := cl.DecideApproval(ctx, id, !approveReject); err != nil {
 			return err
 		}
-		fmt.Printf("Request %s %sd.\n", id, verb)
+		done := "approved"
+		if approveReject {
+			done = "rejected"
+		}
+		fmt.Printf("Request %s %s.\n", id, done)
 		return nil
 	},
 }
