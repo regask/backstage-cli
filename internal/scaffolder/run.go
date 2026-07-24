@@ -6,7 +6,12 @@ import (
 	"io"
 	"net/url"
 	"strconv"
+	"time"
 )
+
+// pollInterval backs off event polling when the endpoint returns an empty
+// batch immediately rather than long-polling.
+const pollInterval = time.Second
 
 // TODO(execution): confirm these endpoints against the running backend —
 // the Backstage default scaffolder API is /scaffolder/v2/tasks (POST) and
@@ -67,6 +72,15 @@ func Stream(ctx context.Context, d Doer, taskID string, out io.Writer) (string, 
 					status = "completed"
 				}
 				return status, nil
+			}
+		}
+		if len(batch) == 0 {
+			// Back off if the endpoint returns immediately instead of
+			// long-polling, so we don't hot-loop the backend. Cancellable.
+			select {
+			case <-ctx.Done():
+				return "", ctx.Err()
+			case <-time.After(pollInterval):
 			}
 		}
 	}

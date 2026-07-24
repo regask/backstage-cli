@@ -32,13 +32,14 @@ func extractRedirectURI(startURL string) string {
 }
 
 // randomState returns a CSRF token tying the browser handoff to this process.
-func randomState() string {
+// It errors rather than falling back to a predictable value, which would
+// defeat the CSRF check.
+func randomState() (string, error) {
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {
-		// rand.Read never fails on supported platforms; fall back defensively.
-		return "cli-state"
+		return "", err
 	}
-	return hex.EncodeToString(b)
+	return hex.EncodeToString(b), nil
 }
 
 // pairingCode returns a short human-matchable code the user compares between
@@ -63,7 +64,10 @@ func (f *LoginFlow) Run(ctx context.Context) (*Config, error) {
 	defer ln.Close()
 
 	redirect := fmt.Sprintf("http://%s/callback", ln.Addr().String())
-	state := randomState()
+	state, err := randomState()
+	if err != nil {
+		return nil, err
+	}
 	code := pairingCode()
 	result := make(chan *Config, 1)
 	errc := make(chan error, 1)

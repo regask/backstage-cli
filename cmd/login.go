@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
+	"time"
 
 	"github.com/regask/backstage-cli/internal/auth"
 	"github.com/spf13/cobra"
@@ -40,7 +41,10 @@ var loginCmd = &cobra.Command{
 			},
 		}
 		fmt.Println("Opening browser to sign in…")
-		cfg, err := flow.Run(context.Background())
+		// Don't hang forever if the user never completes the browser flow.
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		cfg, err := flow.Run(ctx)
 		if err != nil {
 			return err
 		}
