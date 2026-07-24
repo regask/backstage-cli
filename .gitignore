@@ -1,0 +1,15 @@
+# Compiled binaries
+/backstage-regask
+/backstage-regask-cli
+/bsr
+*.exe
+
+# GoReleaser / dist
+/dist/
+
+# SDD progress ledger + scratch (local only)
+/.superpowers/
+
+# OS / editor
+.DS_Store
+*.swp
