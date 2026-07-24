@@ -52,9 +52,17 @@ commands are unit-tested without side effects.
 ## Auth flow
 
 `bsr login` → ephemeral `127.0.0.1:0` loopback server → open browser to the
-portal CLI sign-in with the loopback as `redirect_uri` → capture the Backstage
-token on the callback → persist to `~/.config/backstage-regask/config.json`
-(mode 0600). A `401` on any command tells the user to run `bsr login`.
+portal's **`/cli-auth`** handshake page with the loopback as `redirect_uri` plus
+a random CSRF `state` → the page (a normal authenticated app route, so it forces
+sign-in first if needed) reads the signed-in user's Backstage identity token via
+`identityApi.getCredentials()` and redirects back to the loopback with
+`token` + `state` → the CLI verifies `state`, captures the token, and persists to
+`~/.config/backstage-regask/config.json` (mode 0600). A `401` on any command
+tells the user to run `bsr login`.
+
+The `/cli-auth` page lives in the Regask portal (`packages/app/src/modules/cli-auth`
+in the backstage repo). The loopback only accepts `http://127.0.0.1|localhost`
+redirect targets, so a token is never handed off-machine.
 
 ## Command → backend map
 
@@ -76,12 +84,13 @@ cache; non-zero exit on failure / rejected approval / failed task.
 These use documented defaults and are marked `TODO(execution)` in code until
 confirmed:
 
-1. Portal CLI login start path + how the token reaches the loopback `redirect_uri`.
+1. ~~Portal CLI login start path~~ — **resolved:** `/cli-auth` page added to the
+   portal; CLI sends a CSRF `state` and verifies it on the callback.
 2. The `whoami` identity endpoint.
 3. Scaffolder task/events endpoints + each template's `templateRef` and parameter names.
 4. The runs/task backlink route used in the approval detail view.
 
-Login hardening (CSRF `state` param, login timeout) is tracked alongside item 1.
+Remaining login hardening (login timeout on a stalled browser flow) is still open.
 
 ## Distribution
 

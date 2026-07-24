@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"net/http"
@@ -24,9 +26,20 @@ func extractRedirectURI(startURL string) string {
 	return u.Query().Get("redirect_uri")
 }
 
+// randomState returns a CSRF token tying the browser handoff to this process.
+func randomState() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		// rand.Read never fails on supported platforms; fall back defensively.
+		return "cli-state"
+	}
+	return hex.EncodeToString(b)
+}
+
 // Run starts an ephemeral loopback server, opens the browser to the portal's
-// CLI sign-in with the loopback as redirect_uri, and blocks until the callback
-// delivers the token (or ctx is cancelled).
+// /cli-auth handshake page with the loopback as redirect_uri, and blocks until
+// the callback delivers the token (or ctx is cancelled). A random state ties
+// the callback to this process so another local process can't inject a token.
 func (f *LoginFlow) Run(ctx context.Context) (*Config, error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -35,12 +48,18 @@ func (f *LoginFlow) Run(ctx context.Context) (*Config, error) {
 	defer ln.Close()
 
 	redirect := fmt.Sprintf("http://%s/callback", ln.Addr().String())
+	state := randomState()
 	result := make(chan *Config, 1)
 	errc := make(chan error, 1)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
+		if q.Get("state") != state {
+			http.Error(w, "state mismatch", http.StatusBadRequest)
+			errc <- fmt.Errorf("callback state mismatch")
+			return
+		}
 		tok := q.Get("token")
 		if tok == "" {
 			http.Error(w, "missing token", http.StatusBadRequest)
@@ -61,9 +80,10 @@ func (f *LoginFlow) Run(ctx context.Context) (*Config, error) {
 	go srv.Serve(ln)
 	defer srv.Close()
 
-	// TODO(execution): confirm the real portal start path against the backstage
-	// auth config. Shape: <portal>/cli-login?redirect_uri=<loopback>/callback
-	startURL := fmt.Sprintf("%s/cli-login?redirect_uri=%s", f.Portal, url.QueryEscape(redirect))
+	startURL := fmt.Sprintf(
+		"%s/cli-auth?redirect_uri=%s&state=%s",
+		f.Portal, url.QueryEscape(redirect), url.QueryEscape(state),
+	)
 	if err := f.OpenBrowser(startURL); err != nil {
 		return nil, err
 	}

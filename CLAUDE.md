@@ -48,7 +48,8 @@ changes:** [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md
 
 ## Deferred backend contracts
 
-Three endpoint contracts use documented defaults and are marked `TODO(execution)`
-until confirmed against the live backend: the portal login start path, the
-`whoami` identity endpoint, and the scaffolder task/events endpoints + template
-params. See the architecture doc's "Deferred backend contracts" section.
+Remaining endpoint contracts use documented defaults and are marked
+`TODO(execution)` until confirmed against the live backend: the `whoami` identity
+endpoint, and the scaffolder task/events endpoints + template params. The portal
+login handshake is resolved (`/cli-auth` page + CSRF `state`). See the
+architecture doc's "Deferred backend contracts" section.
