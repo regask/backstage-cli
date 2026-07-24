@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.3](https://github.com/regask/backstage-cli/compare/v1.0.2...v1.0.3) (2026-07-24)
+
+
+### Bug Fixes
+
+* promote/release resolve bare service names to entity refs (consistent with check-deploy) ([c0a8348](https://github.com/regask/backstage-cli/commit/c0a8348f3b34f2063792ba67470430a102978aae))
+
 ## [1.0.2](https://github.com/regask/backstage-cli/compare/v1.0.1...v1.0.2) (2026-07-24)
 
 
