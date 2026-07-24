@@ -6,17 +6,13 @@ import (
 	"os"
 	"strings"
 
+	"github.com/regask/backstage-cli/internal/client"
 	"github.com/regask/backstage-cli/internal/scaffolder"
 	"github.com/spf13/cobra"
 )
 
 // runTemplate launches a template and streams its log; non-zero exit on failure.
-func runTemplate(templateRef string, values map[string]any) error {
-	cl, err := newClient()
-	if err != nil {
-		return err
-	}
-	ctx := context.Background()
+func runTemplate(ctx context.Context, cl *client.Client, templateRef string, values map[string]any) error {
 	id, err := scaffolder.Launch(ctx, cl, templateRef, values)
 	if err != nil {
 		return err
@@ -31,6 +27,36 @@ func runTemplate(templateRef string, values map[string]any) error {
 	}
 	fmt.Printf("Task %s completed. Check `bsr` approvals or the portal for any created approval.\n", id)
 	return nil
+}
+
+// resolveServices maps bare service names to full entity refs in one matrix
+// fetch, so promote/release accept `alert-service` like check-deploy does.
+// The scaffolder templates key on the canonical ref (confirm exact form at
+// execution alongside the template param names).
+func resolveServices(ctx context.Context, cl *client.Client, names []string) ([]string, error) {
+	rows, err := cl.Matrix(ctx, "", false)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(names))
+	for _, n := range names {
+		if strings.Contains(n, "/") {
+			out = append(out, n) // already a ref
+			continue
+		}
+		ref := ""
+		for _, row := range rows {
+			if matchesService(row, n) {
+				ref = row.ServiceRef
+				break
+			}
+		}
+		if ref == "" {
+			return nil, fmt.Errorf("no service matching %q (try the full ref, e.g. component:default/%s)", n, n)
+		}
+		out = append(out, ref)
+	}
+	return out, nil
 }
 
 var (
@@ -54,10 +80,19 @@ var promoteCmd = &cobra.Command{
 		if len(promoteServices) == 0 {
 			return fmt.Errorf("--service is required (one or more)")
 		}
+		cl, err := newClient()
+		if err != nil {
+			return err
+		}
+		ctx := context.Background()
+		svcRefs, err := resolveServices(ctx, cl, promoteServices)
+		if err != nil {
+			return err
+		}
 		// toEnvironment/services param names: confirm against the promote-code
 		// template at execution.
-		values := map[string]any{"toEnvironment": promoteToEnv, "services": promoteServices}
-		return runTemplate("template:default/promote-code", values)
+		values := map[string]any{"toEnvironment": promoteToEnv, "services": svcRefs}
+		return runTemplate(ctx, cl, "template:default/promote-code", values)
 	},
 }
 
@@ -71,17 +106,30 @@ var releaseCmd = &cobra.Command{
 		if len(releaseInclude) > 0 && len(releaseExclude) > 0 {
 			return fmt.Errorf("--include-services and --exclude-services are mutually exclusive")
 		}
+		cl, err := newClient()
+		if err != nil {
+			return err
+		}
+		ctx := context.Background()
 		values := map[string]any{"environment": releaseEnv}
 		if releaseVersion != "" {
 			values["version"] = releaseVersion
 		}
 		if len(releaseInclude) > 0 {
-			values["includeServices"] = releaseInclude
+			refs, err := resolveServices(ctx, cl, releaseInclude)
+			if err != nil {
+				return err
+			}
+			values["includeServices"] = refs
 		}
 		if len(releaseExclude) > 0 {
-			values["excludeServices"] = releaseExclude
+			refs, err := resolveServices(ctx, cl, releaseExclude)
+			if err != nil {
+				return err
+			}
+			values["excludeServices"] = refs
 		}
-		return runTemplate("template:default/release", values)
+		return runTemplate(ctx, cl, "template:default/release", values)
 	},
 }
 
@@ -100,7 +148,11 @@ var cherryPickCmd = &cobra.Command{
 		default:
 			return fmt.Errorf("--branch must be one of: %s", strings.Join(cherryPickBranches, ", "))
 		}
-		return runTemplate("template:default/cherry-pick", map[string]any{"tag": cpTag, "branch": cpBranch})
+		cl, err := newClient()
+		if err != nil {
+			return err
+		}
+		return runTemplate(context.Background(), cl, "template:default/cherry-pick", map[string]any{"tag": cpTag, "branch": cpBranch})
 	},
 }
 
