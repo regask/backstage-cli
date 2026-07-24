@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/regask/backstage-cli/compare/v1.0.1...v1.0.2) (2026-07-24)
+
+
+### Bug Fixes
+
+* resolve bare service name to entity ref (matrix/overlays exact-match ref); add ArgoCD sync/health columns to check-deploy ([844a80f](https://github.com/regask/backstage-cli/commit/844a80f0f6b103d9270456d3087494e40ba4ba59))
+
 ## [1.0.1](https://github.com/regask/backstage-cli/compare/v1.0.0...v1.0.1) (2026-07-24)
 
 
