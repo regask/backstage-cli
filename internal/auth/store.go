@@ -47,11 +47,19 @@ func (s *Store) Save(c *Config) error {
 	if err := os.MkdirAll(s.dir, 0o700); err != nil {
 		return err
 	}
+	// MkdirAll doesn't tighten perms on pre-existing dirs; enforce 0700 unconditionally.
+	if err := os.Chmod(s.dir, 0o700); err != nil {
+		return err
+	}
 	b, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(s.path(), b, 0o600)
+	if err := os.WriteFile(s.path(), b, 0o600); err != nil {
+		return err
+	}
+	// WriteFile doesn't tighten perms on pre-existing files; enforce 0600 unconditionally.
+	return os.Chmod(s.path(), 0o600)
 }
 
 func (s *Store) Clear() error {
