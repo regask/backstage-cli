@@ -1,6 +1,9 @@
 package contracts
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // EnvDeploy is one environment's deploy state for a service.
 type EnvDeploy struct {
@@ -99,4 +102,46 @@ func (a ApprovalRequest) TaskID() string {
 	}
 	_ = json.Unmarshal(a.Payload, &p)
 	return p.TaskID
+}
+
+// DraftReleaseURLs derives the GitHub release link(s) from a release-publish /
+// release-all approval payload ({owner,repo,tag} or {releases:[{owner,repo}]}).
+// Used to surface the draft release while an approval is still pending (before
+// ResultURL — the published link — is set). Returns nil when absent.
+func (a ApprovalRequest) DraftReleaseURLs() []string {
+	if len(a.Payload) == 0 {
+		return nil
+	}
+	var p struct {
+		Owner    string `json:"owner"`
+		Repo     string `json:"repo"`
+		Tag      string `json:"tag"`
+		Releases []struct {
+			Owner string `json:"owner"`
+			Repo  string `json:"repo"`
+			Tag   string `json:"tag"`
+		} `json:"releases"`
+	}
+	if err := json.Unmarshal(a.Payload, &p); err != nil {
+		return nil
+	}
+	rel := func(owner, repo, tag string) string {
+		if owner == "" || repo == "" {
+			return ""
+		}
+		if tag != "" {
+			return fmt.Sprintf("https://github.com/%s/%s/releases/tag/%s", owner, repo, tag)
+		}
+		return fmt.Sprintf("https://github.com/%s/%s/releases", owner, repo)
+	}
+	var out []string
+	if u := rel(p.Owner, p.Repo, p.Tag); u != "" {
+		out = append(out, u)
+	}
+	for _, r := range p.Releases {
+		if u := rel(r.Owner, r.Repo, r.Tag); u != "" {
+			out = append(out, u)
+		}
+	}
+	return out
 }

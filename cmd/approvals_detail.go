@@ -20,6 +20,15 @@ func printApprovalDetail(w io.Writer, portalURL string, r contracts.ApprovalRequ
 	}
 	if r.ResultURL != "" {
 		fmt.Fprintf(w, "\nrelease link: %s\n", r.ResultURL)
+	} else if drafts := r.DraftReleaseURLs(); len(drafts) > 0 {
+		if len(drafts) == 1 {
+			fmt.Fprintf(w, "\ndraft release: %s\n", drafts[0])
+		} else {
+			fmt.Fprintln(w, "\ndraft releases:")
+			for _, d := range drafts {
+				fmt.Fprintf(w, "  %s\n", d)
+			}
+		}
 	}
 	if task := r.TaskID(); task != "" {
 		base := strings.TrimRight(portalURL, "/")
