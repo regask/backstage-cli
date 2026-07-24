@@ -4,13 +4,18 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"sort"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/regask/backstage-cli/internal/render"
 	"github.com/spf13/cobra"
 )
+
+// displayServiceRef strips the "component:default/" prefix from a service
+// entity ref for display.
+func displayServiceRef(ref string) string {
+	return strings.TrimPrefix(ref, "component:default/")
+}
 
 var findTicketCmd = &cobra.Command{
 	Use:   "find-ticket <TICKET> [TICKET...]",
@@ -27,16 +32,23 @@ var findTicketCmd = &cobra.Command{
 		}
 		return render.Output(JSONOutput(), out, func(w io.Writer) {
 			tw := tabwriter.NewWriter(w, 0, 2, 2, ' ', 0)
-			fmt.Fprintln(tw, "TICKET\tENVIRONMENTS")
-			tickets := make([]string, 0, len(out.Results))
-			for k := range out.Results {
-				tickets = append(tickets, k)
-			}
-			sort.Strings(tickets)
-			for _, tk := range tickets {
-				fmt.Fprintf(tw, "%s\t%s\n", tk, strings.Join(out.Results[tk], ", "))
+			fmt.Fprintln(tw, "SERVICE\tENVIRONMENTS\tTICKETS")
+			for _, res := range out.Services {
+				seen := make(map[string]bool, len(res.Commits))
+				tickets := make([]string, 0, len(res.Commits))
+				for _, cm := range res.Commits {
+					if cm.Ticket == "" || seen[cm.Ticket] {
+						continue
+					}
+					seen[cm.Ticket] = true
+					tickets = append(tickets, cm.Ticket)
+				}
+				fmt.Fprintf(tw, "%s\t%s\t%s\n", displayServiceRef(res.ServiceRef), strings.Join(res.DeployedEnvs, ", "), strings.Join(tickets, ", "))
 			}
 			tw.Flush()
+			if len(out.NotFound) > 0 {
+				fmt.Fprintf(w, "not found: %s\n", strings.Join(out.NotFound, ", "))
+			}
 		})
 	},
 }

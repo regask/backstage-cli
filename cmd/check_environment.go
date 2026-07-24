@@ -29,9 +29,13 @@ var checkEnvironmentCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		overlay, ok := ov.Overlays[checkEnvEnv]
+		if !ok {
+			return fmt.Errorf("no overlay for env %q", checkEnvEnv)
+		}
 		effective := contracts.MergeMaps(
-			contracts.ParseEnvFile(ov.BaseEnv),
-			contracts.ParseEnvFile(ov.EnvOverlays[checkEnvEnv]),
+			contracts.ParseEnvFile(ov.BaseEnvText),
+			contracts.ParseEnvFile(overlay.EnvText),
 		)
 		return render.Output(JSONOutput(), effective, func(w io.Writer) {
 			tw := tabwriter.NewWriter(w, 0, 2, 2, ' ', 0)

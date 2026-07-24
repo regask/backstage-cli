@@ -36,29 +36,29 @@ var checkSecretsCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		if secretsReveal && secretsVault == "" {
+			return fmt.Errorf("--vault is required with --reveal")
+		}
 		ctx := context.Background()
 		ov, err := cl.Overlays(ctx, args[0], freshFlag)
 		if err != nil {
 			return err
 		}
-		refs := contracts.MergeMaps(
-			contracts.ParseSecretRefs(ov.SecretBase),
-			contracts.ParseSecretRefs(ov.SecretOverlay[secretsEnv]),
-		)
-		vault := secretsVault
-		if vault == "" {
-			vault = ov.Vaults[secretsEnv]
+		overlay, ok := ov.Overlays[secretsEnv]
+		if !ok {
+			return fmt.Errorf("no overlay for env %q", secretsEnv)
 		}
+		refs := contracts.MergeMaps(
+			contracts.ParseSecretRefs(ov.BaseSecretsText),
+			contracts.ParseSecretRefs(overlay.SecretsText),
+		)
 
 		runner := az.NewCLI()
 		rows := make([]secretRow, 0, len(refs))
 		for _, key := range contracts.SortedKeys(refs) {
 			row := secretRow{SecretKey: key, VaultKey: refs[key]}
 			if secretsReveal {
-				if vault == "" {
-					return fmt.Errorf("no vault for env %q; pass --vault", secretsEnv)
-				}
-				val, err := runner.GetSecret(ctx, vault, refs[key])
+				val, err := runner.GetSecret(ctx, secretsVault, refs[key])
 				if err != nil {
 					return err
 				}
@@ -82,7 +82,7 @@ var checkSecretsCmd = &cobra.Command{
 func init() {
 	checkSecretsCmd.Flags().StringVar(&secretsEnv, "env", "", "environment (required)")
 	checkSecretsCmd.Flags().BoolVar(&secretsReveal, "reveal", false, "resolve and print secret values via az")
-	checkSecretsCmd.Flags().StringVar(&secretsVault, "vault", "", "override Azure Key Vault name")
+	checkSecretsCmd.Flags().StringVar(&secretsVault, "vault", "", "Azure Key Vault name (required with --reveal)")
 	checkSecretsCmd.Flags().BoolVar(&freshFlag, "fresh", false, "bypass server cache")
 	RootCmd.AddCommand(checkSecretsCmd)
 }
