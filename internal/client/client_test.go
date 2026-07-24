@@ -26,7 +26,9 @@ func TestGetJSONInjectsTokenAndFresh(t *testing.T) {
 	})}
 	c := New("https://portal.example/", func() (string, error) { return "tok123", nil }, hc)
 
-	var out struct{ OK bool `json:"ok"` }
+	var out struct {
+		OK bool `json:"ok"`
+	}
 	if err := c.GetJSON(context.Background(), "/deploy-management/matrix", nil, true, &out); err != nil {
 		t.Fatalf("get: %v", err)
 	}
