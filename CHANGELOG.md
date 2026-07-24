@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.0](https://github.com/regask/backstage-cli/compare/v1.0.3...v1.1.0) (2026-07-24)
+
+
+### Features
+
+* **check-secrets:** default vault per env (SECRET_VAULT_BY_ENV); --vault now an override ([fd3f20e](https://github.com/regask/backstage-cli/commit/fd3f20ee292c264e8da04b0adced0c7ef7299cc6))
+
+
+### Bug Fixes
+
+* **approvals:** unwrap { request } envelope in GetApproval (query-approval showed empty) ([138053e](https://github.com/regask/backstage-cli/commit/138053e602834b985f9c23dcaca3e394ea1c862d))
+
 ## [1.0.3](https://github.com/regask/backstage-cli/compare/v1.0.2...v1.0.3) (2026-07-24)
 
 
