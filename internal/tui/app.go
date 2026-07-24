@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/regask/backstage-cli/internal/client"
 	"github.com/regask/backstage-cli/internal/tui/ui"
 	"github.com/regask/backstage-cli/internal/tui/views"
@@ -24,6 +25,7 @@ type App struct {
 	approvals    views.Approvals
 	active       string
 	banner       string
+	bannerErr    bool // true when banner is an error (errMsg/bannerMsg{IsErr:true}), styled Bad instead of Good
 	showHelp     bool
 	w, h         int
 
@@ -60,13 +62,17 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m := msg.(type) {
 	case tea.WindowSizeMsg:
 		a.w, a.h = m.Width, m.Height
-		bodyH := m.Height - 2
+		bodyH := m.Height - 2 // 1 line header + 1 line footer
+		if bodyH < 0 {
+			bodyH = 0
+		}
 		a.services = a.services.SetSize(m.Width, bodyH)
 		a.approvals = a.approvals.SetSize(m.Width, bodyH)
 		return a, nil
 	case switchViewMsg:
 		a.active = m.View
 		a.banner = ""
+		a.bannerErr = false
 		return a, a.refresh()
 	case servicesLoadedMsg:
 		a.services = a.services.SetRows(m.Rows)
@@ -76,12 +82,15 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 	case bannerMsg:
 		a.banner = m.Text
+		a.bannerErr = m.IsErr
 		return a, nil
 	case errMsg:
 		a.banner = m.Err.Error()
+		a.bannerErr = true
 		return a, nil
 	case actionResultMsg:
 		a.banner = m.Text
+		a.bannerErr = !m.OK
 		return a, a.refresh()
 	case tea.KeyMsg:
 		if a.cmdBar.Focused() {
@@ -142,48 +151,64 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.prompt, cmd = a.prompt.Update(msg)
 			return a, cmd
 		}
-		switch {
-		case a.active == "approvals" && key.Matches(m, a.keys.Approve):
-			if sel, ok := a.approvals.Selected(); ok {
-				a.confirmText = "approve " + sel.ID + "? [y/N]"
-				a.pending = approveCmd(a.cl, sel.ID, true)
+		// While a view is capturing input (services filter open, approvals
+		// detail viewport open), every key belongs to it: a service name
+		// containing "q"/"p"/"r"/":" would otherwise quit/promote/release/
+		// open the command bar, and approve/reject shouldn't fire against a
+		// hidden approvals list underneath the detail pane. Skip the global
+		// and action key switch entirely and fall through to delegate below;
+		// only ctrl+c remains a hard-quit escape hatch.
+		capturing := (a.active == "services" && a.services.FilterActive()) ||
+			(a.active == "approvals" && a.approvals.DetailActive())
+		if capturing {
+			if m.Type == tea.KeyCtrlC {
+				return a, tea.Quit
 			}
-			return a, nil
-		case a.active == "approvals" && key.Matches(m, a.keys.Reject):
-			if sel, ok := a.approvals.Selected(); ok {
-				a.confirmText = "reject " + sel.ID + "? [y/N]"
-				a.pending = approveCmd(a.cl, sel.ID, false)
-			}
-			return a, nil
-		case a.active == "services" && key.Matches(m, a.keys.Promote):
-			if sel, ok := a.services.Selected(); ok {
-				a.promptKind = "promote"
-				a.promptService = sel.ServiceRef
+		} else {
+			switch {
+			case a.active == "approvals" && key.Matches(m, a.keys.Approve):
+				if sel, ok := a.approvals.Selected(); ok {
+					a.confirmText = "approve " + sel.ID + "? [y/N]"
+					a.pending = approveCmd(a.cl, sel.ID, true)
+				}
+				return a, nil
+			case a.active == "approvals" && key.Matches(m, a.keys.Reject):
+				if sel, ok := a.approvals.Selected(); ok {
+					a.confirmText = "reject " + sel.ID + "? [y/N]"
+					a.pending = approveCmd(a.cl, sel.ID, false)
+				}
+				return a, nil
+			case a.active == "services" && key.Matches(m, a.keys.Promote):
+				if sel, ok := a.services.Selected(); ok {
+					a.promptKind = "promote"
+					a.promptService = sel.ServiceRef
+					a.promptActive = true
+					a.prompt.Focus()
+					return a, textinput.Blink
+				}
+				return a, nil
+			case a.active == "services" && key.Matches(m, a.keys.Release):
+				a.promptService = ""
+				if sel, ok := a.services.Selected(); ok {
+					a.promptService = sel.ServiceRef
+				}
+				a.promptKind = "release"
 				a.promptActive = true
 				a.prompt.Focus()
 				return a, textinput.Blink
+			case key.Matches(m, a.keys.Command):
+				a.cmdBar.Focus()
+				return a, nil
+			case key.Matches(m, a.keys.Help):
+				a.showHelp = !a.showHelp
+				return a, nil
+			case key.Matches(m, a.keys.Refresh):
+				a.banner = ""
+				a.bannerErr = false
+				return a, a.refresh()
+			case key.Matches(m, a.keys.Quit):
+				return a, tea.Quit
 			}
-			return a, nil
-		case a.active == "services" && key.Matches(m, a.keys.Release):
-			a.promptService = ""
-			if sel, ok := a.services.Selected(); ok {
-				a.promptService = sel.ServiceRef
-			}
-			a.promptKind = "release"
-			a.promptActive = true
-			a.prompt.Focus()
-			return a, textinput.Blink
-		case key.Matches(m, a.keys.Command):
-			a.cmdBar.Focus()
-			return a, nil
-		case key.Matches(m, a.keys.Help):
-			a.showHelp = !a.showHelp
-			return a, nil
-		case key.Matches(m, a.keys.Refresh):
-			a.banner = ""
-			return a, a.refresh()
-		case key.Matches(m, a.keys.Quit):
-			return a, tea.Quit
 		}
 	}
 	// delegate to the active view
@@ -204,6 +229,11 @@ func (a App) refresh() tea.Cmd {
 }
 
 func (a App) View() string {
+	// Too small to render meaningfully (and h-2 would go negative for the
+	// header/footer split) — render nothing rather than a garbled frame.
+	if a.h <= 2 || a.w <= 2 {
+		return ""
+	}
 	header := renderHeader(a.theme, a.portal, a.user, a.active)
 	var body string
 	switch a.active {
@@ -215,7 +245,7 @@ func (a App) View() string {
 	if a.showHelp {
 		body = a.theme.Modal.Render(helpText(a.keys))
 	}
-	footer := renderFooter(a.theme, a.keys, a.banner)
+	footer := renderFooter(a.theme, a.keys, a.banner, a.bannerErr)
 	switch {
 	case a.cmdBar.Focused():
 		footer = a.cmdBar.View()
@@ -224,7 +254,12 @@ func (a App) View() string {
 	case a.promptActive:
 		footer = a.prompt.View()
 	}
-	return header + "\n" + body + "\n" + footer
+	out := header + "\n" + body + "\n" + footer
+	// Constrain the composed frame to exactly the terminal's dimensions so
+	// an oversized view (from a view rendering more lines than its allotted
+	// body height) never reaches the alt-screen renderer and causes redraw
+	// thrash — pad short frames, truncate long ones, in both dimensions.
+	return lipgloss.NewStyle().Width(a.w).MaxWidth(a.w).Height(a.h).MaxHeight(a.h).Render(out)
 }
 
 func helpText(k ui.Keys) string {

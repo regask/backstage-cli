@@ -24,22 +24,36 @@ type Approvals struct {
 }
 
 func NewApprovals(theme ui.Theme, keys ui.Keys) Approvals {
+	st := table.DefaultStyles()
+	st.Selected = theme.Selected
+	st.Header = theme.TableHeader
 	t := table.New(table.WithColumns([]table.Column{
 		{Title: "KIND", Width: 20},
 		{Title: "STATUS", Width: 12},
 		{Title: "TITLE", Width: 40},
-	}), table.WithFocused(true))
+	}), table.WithFocused(true), table.WithStyles(st))
 	return Approvals{theme: theme, keys: keys, table: t, detail: viewport.New(0, 0)}
 }
 
+// SetSize records the body height allotted to this view (App.View's total
+// screen height minus its 1-line header and 1-line footer). The table gets
+// that height minus the "N approvals" header line View() renders on top of
+// it; the detail viewport, which renders with no extra chrome, gets the full
+// height.
 func (a Approvals) SetSize(w, h int) Approvals {
 	a.w, a.h = w, h
 	a.table.SetWidth(w)
-	if bh := h - 3; bh > 0 {
+	if bh := h - 1; bh > 0 { // "N approvals" header line
 		a.table.SetHeight(bh)
+	} else {
+		a.table.SetHeight(0)
 	}
 	a.detail.Width = w
-	a.detail.Height = h - 3
+	if h > 0 {
+		a.detail.Height = h
+	} else {
+		a.detail.Height = 0
+	}
 	return a
 }
 
@@ -99,6 +113,11 @@ func (a Approvals) detailText(r contracts.ApprovalRequest) string {
 	}
 	return b.String()
 }
+
+// DetailActive reports whether the detail viewport is open, so App can route
+// input (scrolling, esc) straight to it and skip global/action key bindings
+// that would otherwise fire against the hidden list underneath.
+func (a Approvals) DetailActive() bool { return a.showing }
 
 func (a Approvals) Update(msg tea.Msg) (Approvals, tea.Cmd) {
 	var cmd tea.Cmd

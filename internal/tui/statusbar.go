@@ -22,9 +22,13 @@ func renderHeader(theme ui.Theme, portal, user, view string) string {
 	return theme.Header.Render(left + "   " + right)
 }
 
-func renderFooter(theme ui.Theme, keys ui.Keys, banner string) string {
+func renderFooter(theme ui.Theme, keys ui.Keys, banner string, bannerErr bool) string {
 	if banner != "" {
-		return theme.Banner.Render(banner)
+		style := theme.Good
+		if bannerErr {
+			style = theme.Bad
+		}
+		return style.Bold(true).Padding(0, 1).Render(banner)
 	}
 	var hints []string
 	for _, b := range keys.ShortHelp() {

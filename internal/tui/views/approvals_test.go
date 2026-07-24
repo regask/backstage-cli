@@ -11,7 +11,7 @@ import (
 
 func TestApprovalsSelectAndDetail(t *testing.T) {
 	a := NewApprovals(ui.NewTheme(), ui.DefaultKeys())
-	a.SetSize(80, 24)
+	a = a.SetSize(80, 24)
 	a = a.SetItems([]contracts.ApprovalRequest{
 		{ID: "abc", Kind: "release-publish", Status: "pending", Title: "Publish svc",
 			ResultURL: "https://gh/rel/v1", Summary: "publish"},

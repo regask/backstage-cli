@@ -49,7 +49,7 @@ func (t Theme) StatusStyle(v string) lipgloss.Style {
 	switch v {
 	case "Synced", "Healthy":
 		return t.Good
-	case "OutOfSync", "Progressing", "Missing":
+	case "OutOfSync", "Progressing", "Missing", "Suspended":
 		return t.Warn
 	case "Degraded", "Unknown":
 		return t.Bad

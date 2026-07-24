@@ -3,7 +3,6 @@ package tui
 import (
 	"context"
 	"net/url"
-	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/regask/backstage-cli/internal/client"
@@ -34,12 +33,4 @@ func loadApprovals(cl *client.Client, fresh bool) tea.Cmd {
 		}
 		return approvalsLoadedMsg{Items: out.Requests}
 	}
-}
-
-// matchService matches a bare name, full ref, or ns/name against a row.
-func matchService(row contracts.MatrixRow, q string) bool {
-	ql := strings.ToLower(q)
-	return strings.EqualFold(row.ServiceRef, q) ||
-		strings.EqualFold(row.ServiceName, q) ||
-		strings.HasSuffix(strings.ToLower(row.ServiceRef), "/"+ql)
 }

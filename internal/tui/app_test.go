@@ -164,6 +164,44 @@ func TestAppPromoteEnvPromptFlow(t *testing.T) {
 	}
 }
 
+// TestAppQuitKeyDuringServicesFilterDoesNotQuit: while the services "/"
+// filter is capturing keystrokes, a "q" keystroke (typed as part of a service
+// name) must reach the filter input, not the global quit binding. Feed the
+// keys directly: the app must stay alive (no tea.QuitMsg command), the filter
+// must stay active, and the "q" must land in the filter's rendered value.
+func TestAppQuitKeyDuringServicesFilterDoesNotQuit(t *testing.T) {
+	a := testApp()
+	m, _ := a.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	a = m.(App)
+	a.services = a.services.SetRows([]contracts.MatrixRow{
+		{ServiceRef: "component:default/quickstart", ServiceName: "quickstart",
+			Envs: map[string]contracts.EnvDeploy{"production": {Tag: "v1"}}},
+	})
+
+	m, _ = a.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("/")})
+	a = m.(App)
+	if !a.services.FilterActive() {
+		t.Fatalf("expected filter to be active after '/'")
+	}
+
+	m, cmd := a.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
+	a, ok := m.(App)
+	if !ok {
+		t.Fatalf("expected App to be returned, got %T", m)
+	}
+	if cmd != nil {
+		if _, isQuit := cmd().(tea.QuitMsg); isQuit {
+			t.Fatalf("expected 'q' during filter to not quit")
+		}
+	}
+	if !a.services.FilterActive() {
+		t.Fatalf("expected filter to remain active")
+	}
+	if !strings.Contains(a.View(), "/q") {
+		t.Fatalf("expected 'q' to land in the filter input, view: %s", a.View())
+	}
+}
+
 // TestAppPromoteEmptyEnvKeepsPromptOpen: pressing Enter on the promote
 // prompt with an empty (or whitespace-only) value must not launch anything;
 // the prompt stays active for the user to type a value.

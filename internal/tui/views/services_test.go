@@ -3,6 +3,7 @@ package views
 import (
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/regask/backstage-cli/internal/contracts"
 	"github.com/regask/backstage-cli/internal/tui/ui"
 )
@@ -18,7 +19,7 @@ func newRows() []contracts.MatrixRow {
 
 func TestServicesSetRowsAndSelect(t *testing.T) {
 	s := NewServices(ui.NewTheme(), ui.DefaultKeys())
-	s.SetSize(80, 24)
+	s = s.SetSize(80, 24)
 	s = s.SetRows(newRows())
 	sel, ok := s.Selected()
 	if !ok || sel.ServiceName != "alpha" {
@@ -46,5 +47,20 @@ func TestServicesSelectedSkipsEmptyEnvs(t *testing.T) {
 	sel, ok := s.Selected()
 	if !ok || sel.ServiceName != "beta" {
 		t.Fatalf("selected = %+v ok=%v, want beta", sel, ok)
+	}
+}
+
+// FilterActive must flip on once "/" is pressed, so App can route keystrokes
+// straight to the filter input instead of the global/action key bindings.
+func TestServicesFilterActive(t *testing.T) {
+	s := NewServices(ui.NewTheme(), ui.DefaultKeys())
+	s = s.SetSize(80, 24)
+	if s.FilterActive() {
+		t.Fatal("filter should not be active before '/' is pressed")
+	}
+
+	s, _ = s.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("/")})
+	if !s.FilterActive() {
+		t.Fatal("filter should be active after '/' is pressed")
 	}
 }
