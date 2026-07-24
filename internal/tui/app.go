@@ -2,6 +2,7 @@ package tui
 
 import (
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/regask/backstage-cli/internal/client"
 	"github.com/regask/backstage-cli/internal/tui/ui"
@@ -23,16 +24,30 @@ type App struct {
 	banner       string
 	showHelp     bool
 	w, h         int
+
+	// confirm gates a destructive action (approve/reject) behind a y/N
+	// prompt; pending is the command it runs once confirmed.
+	confirmText string
+	pending     tea.Cmd
+
+	// prompt captures the target environment for promote/release.
+	prompt        textinput.Model
+	promptActive  bool
+	promptKind    string // "promote" | "release"
+	promptService string
 }
 
 func NewApp(cl *client.Client, portal, user string) App {
 	theme, keys := ui.NewTheme(), ui.DefaultKeys()
+	prompt := textinput.New()
+	prompt.Prompt = "target env: "
 	return App{
 		cl: cl, portal: portal, user: user, theme: theme, keys: keys,
 		cmdBar:    newCommandBar(),
 		services:  views.NewServices(theme, keys),
 		approvals: views.NewApprovals(theme, keys),
 		active:    "services",
+		prompt:    prompt,
 	}
 }
 
@@ -63,12 +78,81 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case errMsg:
 		a.banner = m.Err.Error()
 		return a, nil
+	case actionResultMsg:
+		a.banner = m.Text
+		return a, a.refresh()
 	case tea.KeyMsg:
 		if a.cmdBar.Focused() {
 			a.cmdBar, cmd = a.cmdBar.Update(msg)
 			return a, cmd
 		}
+		// Confirm takes precedence over everything except the command bar:
+		// any key other than y/Y cancels the pending action.
+		if a.confirmText != "" {
+			if m.String() == "y" || m.String() == "Y" {
+				cmd = a.pending
+				a.pending = nil
+				a.confirmText = ""
+				return a, cmd
+			}
+			a.pending = nil
+			a.confirmText = ""
+			return a, nil
+		}
+		if a.promptActive {
+			switch m.Type {
+			case tea.KeyEnter:
+				env := a.prompt.Value()
+				a.promptActive = false
+				a.prompt.Blur()
+				a.prompt.SetValue("")
+				switch a.promptKind {
+				case "promote":
+					return a, promoteCmd(a.cl, env, []string{a.promptService})
+				case "release":
+					return a, releaseCmd(a.cl, env)
+				}
+				return a, nil
+			case tea.KeyEsc:
+				a.promptActive = false
+				a.prompt.Blur()
+				a.prompt.SetValue("")
+				return a, nil
+			}
+			a.prompt, cmd = a.prompt.Update(msg)
+			return a, cmd
+		}
 		switch {
+		case a.active == "approvals" && key.Matches(m, a.keys.Approve):
+			if sel, ok := a.approvals.Selected(); ok {
+				a.confirmText = "approve " + sel.ID + "? [y/N]"
+				a.pending = approveCmd(a.cl, sel.ID, true)
+			}
+			return a, nil
+		case a.active == "approvals" && key.Matches(m, a.keys.Reject):
+			if sel, ok := a.approvals.Selected(); ok {
+				a.confirmText = "reject " + sel.ID + "? [y/N]"
+				a.pending = approveCmd(a.cl, sel.ID, false)
+			}
+			return a, nil
+		case a.active == "services" && key.Matches(m, a.keys.Promote):
+			if sel, ok := a.services.Selected(); ok {
+				a.promptKind = "promote"
+				a.promptService = sel.ServiceRef
+				a.promptActive = true
+				a.prompt.Focus()
+				return a, textinput.Blink
+			}
+			return a, nil
+		case a.active == "services" && key.Matches(m, a.keys.Release):
+			a.promptService = ""
+			if sel, ok := a.services.Selected(); ok {
+				a.promptService = sel.ServiceRef
+			}
+			a.promptKind = "release"
+			a.promptActive = true
+			a.prompt.Focus()
+			return a, textinput.Blink
 		case key.Matches(m, a.keys.Command):
 			a.cmdBar.Focus()
 			return a, nil
@@ -112,8 +196,13 @@ func (a App) View() string {
 		body = a.theme.Modal.Render(helpText(a.keys))
 	}
 	footer := renderFooter(a.theme, a.keys, a.banner)
-	if a.cmdBar.Focused() {
+	switch {
+	case a.cmdBar.Focused():
 		footer = a.cmdBar.View()
+	case a.confirmText != "":
+		footer = a.theme.Banner.Render(a.confirmText)
+	case a.promptActive:
+		footer = a.prompt.View()
 	}
 	return header + "\n" + body + "\n" + footer
 }
