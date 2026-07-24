@@ -28,7 +28,7 @@ bsr find-ticket ABC-123                            # which envs a ticket is depl
 bsr query-approval https://backstage.regask.com/approvals/<id>   # details + release link (read-only)
 bsr approve https://backstage.regask.com/approvals/<id>          # approve (or --reject)
 
-bsr promote --service <svc>                        # launch the promote workflow, stream the log
+bsr promote --to-env staging                       # promote code to an environment, stream the log
 bsr release --env prod                             # release an environment
 bsr cherry-pick --tag v1.2.3 --branch release/1.2  # cherry-pick a tag onto a release branch
 ```

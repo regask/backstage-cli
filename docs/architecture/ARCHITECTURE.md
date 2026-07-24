@@ -13,8 +13,11 @@ environment variables and secret refs, look up tickets, view/approve approval
 requests, and launch the promote / release / cherry-pick scaffolder workflows —
 authenticated as the real Backstage user.
 
-The binary is `backstage-regask`; the Homebrew formula also installs a `bsr`
-symlink.
+**Naming:** the repo/folder and Go module are `backstage-cli`
+(`github.com/regask/backstage-cli`), following the Go convention of module name
+= directory. The compiled **binary and Homebrew install stay `backstage-regask`**
+(the Homebrew formula also installs a `bsr` symlink) — the product identity is
+`backstage-regask`, the code lives under `backstage-cli`.
 
 ## Key decisions
 
@@ -63,7 +66,7 @@ token on the callback → persist to `~/.config/backstage-regask/config.json`
 | `find-ticket <TICKET...>` | `POST /deploy-management/ticket-lookup` |
 | `query-approval <link-or-id>` | `GET /approvals/requests/:id` — detail + release link (`resultUrl`) + task backlink |
 | `approve <link-or-id> [--reject]` | `GET` detail, confirm, `POST .../approve`\|`/reject` |
-| `promote` / `release --env` / `cherry-pick --tag --branch` | launch scaffolder templates (`regask:github:promote`, `release:*`, `cherry-pick:*`), stream log |
+| `promote --to-env <env> [--service]` / `release --env` / `cherry-pick --tag --branch` | launch scaffolder templates (`regask:github:promote`, `release:*`, `cherry-pick:*`), stream log |
 
 Cross-cutting: `--json` on every command; `--fresh` bypasses the server TTL
 cache; non-zero exit on failure / rejected approval / failed task.
