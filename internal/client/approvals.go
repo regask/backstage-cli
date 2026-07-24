@@ -30,9 +30,12 @@ func ParseApprovalID(linkOrID string) (string, error) {
 }
 
 func (c *Client) GetApproval(ctx context.Context, id string) (contracts.ApprovalRequest, error) {
-	var out contracts.ApprovalRequest
+	// GET /requests/:id wraps the request in a { "request": {...} } envelope.
+	var out struct {
+		Request contracts.ApprovalRequest `json:"request"`
+	}
 	err := c.GetJSON(ctx, "/approvals/requests/"+url.PathEscape(id), nil, false, &out)
-	return out, err
+	return out.Request, err
 }
 
 func (c *Client) DecideApproval(ctx context.Context, id string, approve bool) error {

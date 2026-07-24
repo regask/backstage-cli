@@ -38,7 +38,7 @@ func TestDecideApprovalPostsToApprovePath(t *testing.T) {
 
 func TestGetApprovalReadsResultURLAndTaskID(t *testing.T) {
 	hc := &http.Client{Transport: rtFunc(func(*http.Request) (*http.Response, error) {
-		return resp(200, `{"id":"abc","kind":"release-publish","status":"pending","title":"Publish svc","resultUrl":"https://github.com/regask/svc/releases/tag/v1","payload":{"taskId":"task-9"}}`), nil
+		return resp(200, `{"request":{"id":"abc","kind":"release-publish","status":"pending","title":"Publish svc","resultUrl":"https://github.com/regask/svc/releases/tag/v1","payload":{"taskId":"task-9"}}}`), nil
 	})}
 	c := New("https://p", func() (string, error) { return "t", nil }, hc)
 	r, err := c.GetApproval(context.Background(), "abc")
