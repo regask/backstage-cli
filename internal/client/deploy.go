@@ -24,3 +24,14 @@ func (c *Client) Overlays(ctx context.Context, service string, fresh bool) (cont
 	err := c.GetJSON(ctx, "/deploy-management/service/overlays", q, fresh, &out)
 	return out, err
 }
+
+func (c *Client) TicketLookup(ctx context.Context, tickets []string, fresh bool) (contracts.TicketLookupResponse, error) {
+	body := map[string]any{"tickets": tickets}
+	var out contracts.TicketLookupResponse
+	path := "/deploy-management/ticket-lookup"
+	if fresh {
+		path += "?refresh=1"
+	}
+	err := c.PostJSON(ctx, path, body, &out)
+	return out, err
+}
