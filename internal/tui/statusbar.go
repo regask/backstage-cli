@@ -32,10 +32,3 @@ func renderFooter(theme ui.Theme, keys ui.Keys, banner string) string {
 	}
 	return theme.Footer.Render(strings.Join(hints, " · "))
 }
-
-// renderStatus is the combined header+footer entry point used by the app
-// model; it just composes renderHeader/renderFooter so callers don't need to
-// import both.
-func renderStatus(theme ui.Theme, portal, user, view string, banner string, keys ui.Keys) (header, footer string) {
-	return renderHeader(theme, portal, user, view), renderFooter(theme, keys, banner)
-}

@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -86,6 +88,19 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.cmdBar, cmd = a.cmdBar.Update(msg)
 			return a, cmd
 		}
+		// While the help overlay is up, only its own toggle and quit act;
+		// every other key is swallowed so it can't move the underlying
+		// table/selection.
+		if a.showHelp {
+			switch {
+			case key.Matches(m, a.keys.Help):
+				a.showHelp = false
+				return a, nil
+			case key.Matches(m, a.keys.Quit):
+				return a, tea.Quit
+			}
+			return a, nil
+		}
 		// Confirm takes precedence over everything except the command bar:
 		// any key other than y/Y cancels the pending action.
 		if a.confirmText != "" {
@@ -103,6 +118,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch m.Type {
 			case tea.KeyEnter:
 				env := a.prompt.Value()
+				if strings.TrimSpace(env) == "" {
+					// Keep the prompt open rather than launch a scaffolder
+					// task with an empty environment.
+					return a, nil
+				}
 				a.promptActive = false
 				a.prompt.Blur()
 				a.prompt.SetValue("")

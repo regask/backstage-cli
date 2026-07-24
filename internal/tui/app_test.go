@@ -84,6 +84,48 @@ func TestAppApproveConfirmFlow(t *testing.T) {
 	}
 }
 
+// TestAppRejectConfirmFlow: pressing "x" (reject) on approvals sets a confirm
+// banner and stashes the pending command; "y" runs it and the resulting
+// actionResultMsg sets the banner.
+func TestAppRejectConfirmFlow(t *testing.T) {
+	a := testApp()
+	a.cl = newFakeClient(`{}`)
+	m, _ := a.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	a = m.(App)
+	m, _ = a.Update(switchViewMsg{View: "approvals"})
+	a = m.(App)
+	a.approvals = a.approvals.SetItems([]contracts.ApprovalRequest{{ID: "abc", Kind: "k", Status: "pending", Title: "t"}})
+
+	m, _ = a.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("x")})
+	a = m.(App)
+	if a.confirmText == "" || a.pending == nil {
+		t.Fatalf("expected pending confirm, got confirmText=%q pending=%v", a.confirmText, a.pending)
+	}
+	if !strings.Contains(a.View(), "reject abc") {
+		t.Fatalf("confirm banner not shown in view: %s", a.View())
+	}
+
+	m, cmd := a.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")})
+	a = m.(App)
+	if a.confirmText != "" || a.pending != nil {
+		t.Fatalf("expected confirm cleared, got confirmText=%q pending=%v", a.confirmText, a.pending)
+	}
+	if cmd == nil {
+		t.Fatalf("expected a command to run")
+	}
+	msg := cmd()
+	res, ok := msg.(actionResultMsg)
+	if !ok || !res.OK {
+		t.Fatalf("want ok actionResultMsg, got %#v", msg)
+	}
+
+	m, _ = a.Update(res)
+	a = m.(App)
+	if a.banner != res.Text {
+		t.Fatalf("banner = %q, want %q", a.banner, res.Text)
+	}
+}
+
 // TestAppPromoteEnvPromptFlow: pressing "p" on services activates the env
 // prompt; typing a value and pressing Enter runs promoteCmd with the typed
 // env and the selected service ref.
@@ -119,5 +161,34 @@ func TestAppPromoteEnvPromptFlow(t *testing.T) {
 	res, ok := msg.(actionResultMsg)
 	if !ok || !res.OK {
 		t.Fatalf("want ok actionResultMsg, got %#v", msg)
+	}
+}
+
+// TestAppPromoteEmptyEnvKeepsPromptOpen: pressing Enter on the promote
+// prompt with an empty (or whitespace-only) value must not launch anything;
+// the prompt stays active for the user to type a value.
+func TestAppPromoteEmptyEnvKeepsPromptOpen(t *testing.T) {
+	a := testApp()
+	a.cl = newFakeClient(`{"id":"task-1"}`)
+	m, _ := a.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	a = m.(App)
+	a.services = a.services.SetRows([]contracts.MatrixRow{
+		{ServiceRef: "component:default/alpha", ServiceName: "alpha",
+			Envs: map[string]contracts.EnvDeploy{"production": {Tag: "v1"}}},
+	})
+
+	m, _ = a.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("p")})
+	a = m.(App)
+	if !a.promptActive {
+		t.Fatalf("prompt not armed")
+	}
+
+	m, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	a = m.(App)
+	if !a.promptActive {
+		t.Fatalf("expected prompt to stay open on empty input")
+	}
+	if cmd != nil {
+		t.Fatalf("expected no launch cmd for empty env, got %v", cmd)
 	}
 }
