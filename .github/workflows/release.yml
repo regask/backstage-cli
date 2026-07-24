@@ -5,6 +5,10 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  # release-please labels its release PR via the Issues API; an explicit
+  # permissions block sets all unlisted scopes to none, so this is required
+  # or the job 403s and no release PR is ever created.
+  issues: write
 jobs:
   release-please:
     runs-on: ubuntu-latest
