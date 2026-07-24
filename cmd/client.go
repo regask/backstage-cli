@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"github.com/regask/backstage-regask-cli/internal/auth"
-	"github.com/regask/backstage-regask-cli/internal/client"
+	"github.com/regask/backstage-cli/internal/auth"
+	"github.com/regask/backstage-cli/internal/client"
 )
 
 var freshFlag bool

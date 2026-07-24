@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/regask/backstage-regask-cli/internal/render"
+	"github.com/regask/backstage-cli/internal/render"
 	"github.com/spf13/cobra"
 )
 

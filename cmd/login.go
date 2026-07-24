@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/regask/backstage-regask-cli/internal/auth"
+	"github.com/regask/backstage-cli/internal/auth"
 	"github.com/spf13/cobra"
 )
 

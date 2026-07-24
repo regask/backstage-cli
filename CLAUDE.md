@@ -16,7 +16,7 @@ changes:** [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md
 
 ## Conventions
 
-- Go module: `github.com/regask/backstage-regask-cli`; Go floor `go 1.22`.
+- Go module: `github.com/regask/backstage-cli`; Go floor `go 1.22`.
 - Binary name: `backstage-regask`; `bsr` is a symlink from the Homebrew formula.
 - **Thin commands, focused packages.** `cmd/` only parses args, calls a client
   method, and renders. Logic lives in `internal/{auth,client,contracts,az,scaffolder,render}`.

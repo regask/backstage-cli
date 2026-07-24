@@ -1,4 +1,4 @@
-module github.com/regask/backstage-regask-cli
+module github.com/regask/backstage-cli
 
 go 1.22
 

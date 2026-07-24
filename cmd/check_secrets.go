@@ -6,9 +6,9 @@ import (
 	"io"
 	"text/tabwriter"
 
-	"github.com/regask/backstage-regask-cli/internal/az"
-	"github.com/regask/backstage-regask-cli/internal/contracts"
-	"github.com/regask/backstage-regask-cli/internal/render"
+	"github.com/regask/backstage-cli/internal/az"
+	"github.com/regask/backstage-cli/internal/contracts"
+	"github.com/regask/backstage-cli/internal/render"
 	"github.com/spf13/cobra"
 )
 

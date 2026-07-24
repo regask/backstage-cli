@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/regask/backstage-regask-cli/cmd"
+	"github.com/regask/backstage-cli/cmd"
 )
 
 func main() {

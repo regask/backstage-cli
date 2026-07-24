@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/regask/backstage-regask-cli/internal/contracts"
+	"github.com/regask/backstage-cli/internal/contracts"
 )
 
 func (c *Client) Matrix(ctx context.Context, service string, fresh bool) (contracts.MatrixResponse, error) {
