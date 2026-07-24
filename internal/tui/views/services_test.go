@@ -29,3 +29,22 @@ func TestServicesSetRowsAndSelect(t *testing.T) {
 		t.Fatal("view should render")
 	}
 }
+
+// A service with an empty Envs map (undeployed) emits zero table rows, so it
+// must never be counted when mapping the cursor back to a shown[] entry.
+func TestServicesSelectedSkipsEmptyEnvs(t *testing.T) {
+	rows := []contracts.MatrixRow{
+		{ServiceRef: "component:default/undeployed", ServiceName: "undeployed",
+			Envs: map[string]contracts.EnvDeploy{}},
+		{ServiceRef: "component:default/beta", ServiceName: "beta",
+			Envs: map[string]contracts.EnvDeploy{"production": {Tag: "v2"}}},
+	}
+	s := NewServices(ui.NewTheme(), ui.DefaultKeys())
+	s = s.SetSize(80, 24)
+	s = s.SetRows(rows)
+
+	sel, ok := s.Selected()
+	if !ok || sel.ServiceName != "beta" {
+		t.Fatalf("selected = %+v ok=%v, want beta", sel, ok)
+	}
+}

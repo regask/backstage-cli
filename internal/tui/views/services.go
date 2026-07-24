@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -42,7 +43,9 @@ func NewServices(theme ui.Theme, keys ui.Keys) Services {
 func (s Services) SetSize(w, h int) Services {
 	s.w, s.h = w, h
 	s.table.SetWidth(w)
-	s.table.SetHeight(h - 3)
+	if bh := h - 3; bh > 0 {
+		s.table.SetHeight(bh)
+	}
 	return s
 }
 
@@ -72,7 +75,9 @@ func (s Services) applyFilter() Services {
 				name = ""
 			}
 			d := r.Envs[e]
-			trows = append(trows, table.Row{name, e, dash(d.Tag), dash(d.SyncStatus), dash(d.HealthStatus)})
+			sync := s.theme.StatusStyle(d.SyncStatus).Render(dash(d.SyncStatus))
+			health := s.theme.StatusStyle(d.HealthStatus).Render(dash(d.HealthStatus))
+			trows = append(trows, table.Row{name, e, dash(d.Tag), sync, health})
 		}
 	}
 	s.table.SetRows(trows)
@@ -95,10 +100,9 @@ func (s Services) Selected() (contracts.MatrixRow, bool) {
 	cur := s.table.Cursor()
 	n := 0
 	for _, r := range s.shown {
+		// A service with no envs emits zero table rows (see applyFilter); it
+		// contributes nothing to the cursor mapping and is never selectable.
 		rowsForSvc := len(r.Envs)
-		if rowsForSvc == 0 {
-			rowsForSvc = 1
-		}
 		if cur < n+rowsForSvc {
 			return r, true
 		}
@@ -122,7 +126,7 @@ func (s Services) Update(msg tea.Msg) (Services, tea.Cmd) {
 		s.filter, cmd = s.filter.Update(msg)
 		return s.applyFilter(), cmd
 	}
-	if km, ok := msg.(tea.KeyMsg); ok && km.String() == "/" {
+	if km, ok := msg.(tea.KeyMsg); ok && key.Matches(km, s.keys.Filter) {
 		s.filterOn = true
 		s.filter.Focus()
 		return s, textinput.Blink
