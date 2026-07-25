@@ -10,8 +10,9 @@ workflows, authenticated as your Backstage user.
 brew install regask/tap/backstage-regask
 ```
 
-Update: `brew upgrade backstage-regask`. The command is `backstage-regask`; for the
-short form add `alias bsr=backstage-regask` to your shell profile.
+Update: run **`bsr update`** (wraps `brew update` + `brew upgrade backstage-regask`),
+or `brew upgrade backstage-regask` directly. The command is `backstage-regask`; for
+the short form add `alias bsr=backstage-regask` to your shell profile.
 
 ## Usage
 
