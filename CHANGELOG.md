@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.2.0](https://github.com/regask/backstage-cli/compare/v1.1.0...v1.2.0) (2026-07-25)
+
+
+### Features
+
+* **approvals:** prefer payload.draftReleaseUrl for the release link when present ([cc3cf05](https://github.com/regask/backstage-cli/commit/cc3cf05c7a988cc62adb6c3f946f4578c6ef25fe))
+* **approvals:** show draft release link (from payload) while pending; published resultUrl when done ([b5bbb29](https://github.com/regask/backstage-cli/commit/b5bbb290f85cbd9f42391b02cd84a5ca0650ca8a))
+* **tui:** add bubbletea deps, theme, and key bindings ([4383fd8](https://github.com/regask/backstage-cli/commit/4383fd8f3b6ab7bd3819c8f2cf3e9ab74a39b5ef))
+* **tui:** approvals count badge in header + services unhealthy-only filter (u) ([9fc260a](https://github.com/regask/backstage-cli/commit/9fc260abacdaa397f3d24d17c924ec53675907f5))
+* **tui:** approvals view with detail pane ([d7a4844](https://github.com/regask/backstage-cli/commit/d7a484417e5a7fad0fd3cd16373863f0f56deb47))
+* **tui:** bsr ui command launching the Bubble Tea program ([ebf3127](https://github.com/regask/backstage-cli/commit/ebf3127b2f823f93ce8995409c0c49b89947bf0c))
+* **tui:** command bar and status header/footer ([92d668b](https://github.com/regask/backstage-cli/commit/92d668bc5a38e205ff0510bb0f6168dc50a0808f))
+* **tui:** message types and async data commands ([990d8a8](https://github.com/regask/backstage-cli/commit/990d8a8d4086396c5045ec21fdb0091becf59ce5))
+* **tui:** promote/release/approve/reject actions with confirm ([888e283](https://github.com/regask/backstage-cli/commit/888e28327b82efc9a58e3178145d611fdc4a9331))
+* **tui:** root app model wiring views, command bar, global keys ([4f1a987](https://github.com/regask/backstage-cli/commit/4f1a9874c2e6c2dc124ca5bd4dfc63782080fb1d))
+* **tui:** services (deploy matrix) view with filter ([4587410](https://github.com/regask/backstage-cli/commit/45874101b77d17f1db7a456c37b090eb8287220a))
+* **tui:** Tab toggles between services and approvals views ([67b0d77](https://github.com/regask/backstage-cli/commit/67b0d77321e78180baca8168be8c860329670f19))
+
+
+### Bug Fixes
+
+* **tui:** correct services Selected() row mapping; use keys.Filter; color sync/health ([5422e85](https://github.com/regask/backstage-cli/commit/5422e8511a42c2f7f6beeb3add6145301bbb071c))
+* **tui:** guard view input focus, constrain layout to viewport, theme selected row + banners ([86b4055](https://github.com/regask/backstage-cli/commit/86b4055de1550cf63592b7dccba0cb011dc9f8c0))
+
 ## [1.1.0](https://github.com/regask/backstage-cli/compare/v1.0.3...v1.1.0) (2026-07-24)
 
 
