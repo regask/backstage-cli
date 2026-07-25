@@ -94,19 +94,63 @@ func TestServicesDetailShowsPerEnv(t *testing.T) {
 	}
 
 	out := s.View()
-	if !strings.Contains(out, "development") {
+	if !strings.Contains(out, "DEVELOPMENT") {
 		t.Fatalf("detail missing env name: %q", out)
 	}
 	if !strings.Contains(out, "v1-dev") {
 		t.Fatalf("detail missing env tag: %q", out)
 	}
-	if !strings.Contains(out, "sync=") || !strings.Contains(out, "health=") {
-		t.Fatalf("detail missing sync/health: %q", out)
+	if !strings.Contains(out, "sync") || !strings.Contains(out, "health") {
+		t.Fatalf("detail missing sync/health labels: %q", out)
+	}
+	if !strings.Contains(out, "Synced") || !strings.Contains(out, "Healthy") {
+		t.Fatalf("detail missing sync/health badge values: %q", out)
 	}
 
 	s, _ = s.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	if s.DetailActive() {
 		t.Fatal("detail should close on esc")
+	}
+}
+
+// The detail pane renders each env as a bordered card with a colored
+// sync/health status badge (see ui.Theme.StatusBadge) rather than the old
+// flat "key: value" text — assert the rendered badge token, env name, and
+// tag all still land in the viewport content.
+func TestServicesDetailRendersStatusBadge(t *testing.T) {
+	s := NewServices(ui.NewTheme(), ui.DefaultKeys())
+	s = s.SetSize(120, 24)
+	s = s.SetRows(newRows())
+
+	s, _ = s.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	out := s.View()
+
+	if !strings.Contains(out, "Synced") {
+		t.Fatalf("detail missing Synced badge: %q", out)
+	}
+	if !strings.Contains(out, "Healthy") {
+		t.Fatalf("detail missing Healthy badge: %q", out)
+	}
+	if !strings.Contains(out, "DEVELOPMENT") {
+		t.Fatalf("detail missing env name: %q", out)
+	}
+	if !strings.Contains(out, "v1-dev") {
+		t.Fatalf("detail missing tag: %q", out)
+	}
+}
+
+// The deploy-matrix table itself must still show something for both statuses
+// per env (compact glyphs, since bubbles/table cells are single-line plain
+// text) — this is the "two status below the version" the table conveys
+// without a colored badge, which is reserved for the detail pane.
+func TestServicesTableCellShowsStatusGlyphs(t *testing.T) {
+	s := NewServices(ui.NewTheme(), ui.DefaultKeys())
+	cell := s.envCell(contracts.EnvDeploy{Tag: "v1", SyncStatus: "Synced", HealthStatus: "Healthy"})
+	if !strings.Contains(cell, "v1") || !strings.Contains(cell, "✓✓") {
+		t.Fatalf("env cell = %q, want tag + two check glyphs", cell)
+	}
+	if s.envCell(contracts.EnvDeploy{}) != "-" {
+		t.Fatalf("empty env cell should stay a dash")
 	}
 }
 

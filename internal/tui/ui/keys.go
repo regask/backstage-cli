@@ -28,7 +28,7 @@ func DefaultKeys() Keys {
 		Enter:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "open")),
 		Filter:     key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
 		Command:    key.NewBinding(key.WithKeys(":"), key.WithHelp(":", "command")),
-		SwitchView: key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "switch view")),
+		SwitchView: key.NewBinding(key.WithKeys("tab", "shift+tab"), key.WithHelp("tab", "switch view")),
 		Refresh:    key.NewBinding(key.WithKeys("ctrl+r"), key.WithHelp("ctrl+r", "refresh")),
 		Help:       key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
 		Back:       key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
