@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0](https://github.com/regask/backstage-cli/compare/v1.2.0...v1.3.0) (2026-07-25)
+
+
+### Features
+
+* **cli:** add 'update' command (brew update + upgrade) ([61aa5c3](https://github.com/regask/backstage-cli/commit/61aa5c3263e8defc87209a376516a41f67f58e47))
+* **tui:** context-sensitive footer hints per view ([eb09fb6](https://github.com/regask/backstage-cli/commit/eb09fb679fbe0f12467a3017267c9a3aa7851290))
+
 ## [1.2.0](https://github.com/regask/backstage-cli/compare/v1.1.0...v1.2.0) (2026-07-25)
 
 
