@@ -43,9 +43,14 @@ func NewServices(theme ui.Theme, keys ui.Keys) Services {
 	ti := textinput.New()
 	ti.Placeholder = "filter services…"
 	ti.Prompt = "/"
+	// Start from table.DefaultStyles() and only override color/bold — never
+	// touch padding. Header and Cell must keep matching horizontal padding or
+	// the header text drifts from its column data (cumulative, worst on the
+	// rightmost column). Selected wraps the whole already-padded row, so it's
+	// safe to replace outright.
 	st := table.DefaultStyles()
+	st.Header = st.Header.Bold(true).Foreground(theme.TableHeader.GetForeground())
 	st.Selected = theme.Selected
-	st.Header = theme.TableHeader
 	cols := []table.Column{{Title: "SERVICE", Width: 28}}
 	for _, e := range matrixEnvs {
 		cols = append(cols, table.Column{Title: e.label, Width: 16})

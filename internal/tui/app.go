@@ -243,7 +243,7 @@ func (a App) View() string {
 	if a.h <= 2 || a.w <= 2 {
 		return ""
 	}
-	header := renderHeader(a.theme, a.portal, a.user, a.active)
+	header := renderHeader(a.theme, a.w, a.portal, a.user, a.active)
 	var body string
 	switch a.active {
 	case "approvals":
@@ -254,7 +254,7 @@ func (a App) View() string {
 	if a.showHelp {
 		body = a.theme.Modal.Render(helpText(a.keys))
 	}
-	footer := renderFooter(a.theme, a.keys, a.banner, a.bannerErr)
+	footer := renderFooter(a.theme, a.w, a.keys, a.banner, a.bannerErr)
 	switch {
 	case a.cmdBar.Focused():
 		footer = a.cmdBar.View()

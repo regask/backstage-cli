@@ -24,9 +24,14 @@ type Approvals struct {
 }
 
 func NewApprovals(theme ui.Theme, keys ui.Keys) Approvals {
+	// Start from table.DefaultStyles() and only override color/bold — never
+	// touch padding. Header and Cell must keep matching horizontal padding or
+	// the header text drifts from its column data (cumulative, worst on the
+	// rightmost column). Selected wraps the whole already-padded row, so it's
+	// safe to replace outright.
 	st := table.DefaultStyles()
+	st.Header = st.Header.Bold(true).Foreground(theme.TableHeader.GetForeground())
 	st.Selected = theme.Selected
-	st.Header = theme.TableHeader
 	t := table.New(table.WithColumns([]table.Column{
 		{Title: "KIND", Width: 20},
 		{Title: "STATUS", Width: 12},

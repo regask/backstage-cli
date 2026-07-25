@@ -17,6 +17,14 @@ type Theme struct {
 	Warn        lipgloss.Style
 	Bad         lipgloss.Style
 	Muted       lipgloss.Style
+
+	// BarBg is the header/footer chrome-bar background. It's exposed as a raw
+	// color (not just baked into Header/Footer) because the bars are
+	// hand-composed from several independently-rendered pieces (title, tabs,
+	// key hints, literal spacers) — lipgloss can't carry a wrapper's
+	// Background through the ANSI reset that terminates each nested Render
+	// call, so every piece must carry this same background itself.
+	BarBg lipgloss.AdaptiveColor
 }
 
 func NewTheme() Theme {
@@ -26,21 +34,25 @@ func NewTheme() Theme {
 	good := lipgloss.AdaptiveColor{Light: "#15803d", Dark: "#4ade80"}
 	warn := lipgloss.AdaptiveColor{Light: "#b45309", Dark: "#fbbf24"}
 	bad := lipgloss.AdaptiveColor{Light: "#b91c1c", Dark: "#f87171"}
+	barBg := lipgloss.AdaptiveColor{Light: "#e5e7eb", Dark: "#1c1f26"}
+	selBg := lipgloss.AdaptiveColor{Light: "#dbeafe", Dark: "#1e3a5f"}
+	selFg := lipgloss.AdaptiveColor{Light: "#1e3a8a", Dark: "#dbeafe"}
 
 	return Theme{
-		Title:       lipgloss.NewStyle().Bold(true).Foreground(brand),
-		TabActive:   lipgloss.NewStyle().Bold(true).Foreground(brand).Underline(true),
-		TabInactive: lipgloss.NewStyle().Foreground(muted),
-		Header:      lipgloss.NewStyle().Foreground(fg).Padding(0, 1),
-		Footer:      lipgloss.NewStyle().Foreground(muted).Padding(0, 1),
+		Title:       lipgloss.NewStyle().Bold(true).Foreground(brand).Background(barBg),
+		TabActive:   lipgloss.NewStyle().Bold(true).Foreground(brand).Underline(true).Background(barBg),
+		TabInactive: lipgloss.NewStyle().Foreground(muted).Background(barBg),
+		Header:      lipgloss.NewStyle().Foreground(fg).Background(barBg).Padding(0, 1),
+		Footer:      lipgloss.NewStyle().Foreground(muted).Background(barBg).Padding(0, 1),
 		TableHeader: lipgloss.NewStyle().Bold(true).Foreground(muted),
-		Selected:    lipgloss.NewStyle().Bold(true).Foreground(brand),
+		Selected:    lipgloss.NewStyle().Bold(true).Foreground(selFg).Background(selBg),
 		Banner:      lipgloss.NewStyle().Foreground(bad).Bold(true).Padding(0, 1),
 		Modal:       lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(brand).Padding(1, 2),
 		Good:        lipgloss.NewStyle().Foreground(good),
 		Warn:        lipgloss.NewStyle().Foreground(warn),
 		Bad:         lipgloss.NewStyle().Foreground(bad),
 		Muted:       lipgloss.NewStyle().Foreground(muted),
+		BarBg:       barBg,
 	}
 }
 
