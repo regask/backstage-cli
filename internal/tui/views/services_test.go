@@ -154,6 +154,73 @@ func TestServicesTableCellShowsStatusGlyphs(t *testing.T) {
 	}
 }
 
+// "u" toggles a filter that keeps only services with a problem env (sync or
+// health status set and not the fully-healthy value), combined with any
+// active text filter.
+func TestServicesUnhealthyFilter(t *testing.T) {
+	rows := []contracts.MatrixRow{
+		{ServiceRef: "component:default/healthy", ServiceName: "healthy",
+			Envs: map[string]contracts.EnvDeploy{
+				"production": {Tag: "v1", SyncStatus: "Synced", HealthStatus: "Healthy"},
+			}},
+		{ServiceRef: "component:default/sick", ServiceName: "sick",
+			Envs: map[string]contracts.EnvDeploy{
+				"production": {Tag: "v1", SyncStatus: "OutOfSync", HealthStatus: "Healthy"},
+			}},
+	}
+
+	s := NewServices(ui.NewTheme(), ui.DefaultKeys())
+	s = s.SetSize(120, 24)
+	s = s.SetRows(rows)
+
+	if len(s.shown) != 2 {
+		t.Fatalf("shown before toggle = %d, want 2", len(s.shown))
+	}
+
+	s, _ = s.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("u")})
+
+	if len(s.shown) != 1 {
+		t.Fatalf("shown after unhealthy-only toggle = %d, want 1", len(s.shown))
+	}
+	sel, ok := s.Selected()
+	if !ok || sel.ServiceName != "sick" {
+		t.Fatalf("selected = %+v ok=%v, want sick", sel, ok)
+	}
+
+	// Toggling again restores the full list.
+	s, _ = s.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("u")})
+	if len(s.shown) != 2 {
+		t.Fatalf("shown after second toggle = %d, want 2", len(s.shown))
+	}
+}
+
+func TestIsUnhealthy(t *testing.T) {
+	healthy := contracts.MatrixRow{Envs: map[string]contracts.EnvDeploy{
+		"production": {SyncStatus: "Synced", HealthStatus: "Healthy"},
+	}}
+	if isUnhealthy(healthy) {
+		t.Fatal("all-synced/healthy row should not be unhealthy")
+	}
+	outOfSync := contracts.MatrixRow{Envs: map[string]contracts.EnvDeploy{
+		"production": {SyncStatus: "OutOfSync", HealthStatus: "Healthy"},
+	}}
+	if !isUnhealthy(outOfSync) {
+		t.Fatal("OutOfSync env should be unhealthy")
+	}
+	degraded := contracts.MatrixRow{Envs: map[string]contracts.EnvDeploy{
+		"production": {SyncStatus: "Synced", HealthStatus: "Degraded"},
+	}}
+	if !isUnhealthy(degraded) {
+		t.Fatal("Degraded health env should be unhealthy")
+	}
+	empty := contracts.MatrixRow{Envs: map[string]contracts.EnvDeploy{
+		"production": {},
+	}}
+	if isUnhealthy(empty) {
+		t.Fatal("env with no statuses set should not be unhealthy")
+	}
+}
+
 func TestDash(t *testing.T) {
 	if dash("") != "-" {
 		t.Fatal(`dash("") should be "-"`)

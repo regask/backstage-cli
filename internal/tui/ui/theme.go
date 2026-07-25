@@ -34,6 +34,11 @@ type Theme struct {
 	BadgeBad   lipgloss.Style
 	BadgeMuted lipgloss.Style
 
+	// CountBadge is a small attention pill for a numeric count next to a tab
+	// label (e.g. pending approvals) — amber background, dark readable text,
+	// same family as Badge* but bold+compact for inline use next to a tab.
+	CountBadge lipgloss.Style
+
 	// BrandColor/GoodColor/WarnColor/BadColor/MutedColor are the raw semantic
 	// colors backing Title/Good/Warn/Bad/Muted, exposed for callers that need
 	// a color rather than a full Style (e.g. Panel.BorderForeground).
@@ -97,6 +102,7 @@ func NewTheme() Theme {
 		BadgeWarn:  lipgloss.NewStyle().Bold(true).Padding(0, 1).Foreground(onAmber).Background(badgeWarnBg),
 		BadgeBad:   lipgloss.NewStyle().Bold(true).Padding(0, 1).Foreground(white).Background(badgeBadBg),
 		BadgeMuted: lipgloss.NewStyle().Bold(true).Padding(0, 1).Foreground(white).Background(badgeMutedBg),
+		CountBadge: lipgloss.NewStyle().Bold(true).Padding(0, 1).Foreground(onAmber).Background(badgeWarnBg),
 
 		BrandColor: brand,
 		GoodColor:  good,

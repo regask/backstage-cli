@@ -55,16 +55,23 @@ func fitBar(w int, left, right string) (string, string) {
 // renderHeader renders the top chrome as a full-width, single-line bar: "bsr"
 // plus the view tabs on the left, the user/portal on the right. w is the
 // terminal width; theme.Header's Padding(0,1) contributes the 1-column inset
-// on each side, so the hand-composed content targets w-2.
-func renderHeader(theme ui.Theme, w int, portal, user, view string) string {
+// on each side, so the hand-composed content targets w-2. approvalsCount, when
+// positive, renders as a small attention pill after the "approvals" tab label
+// so the pending count is visible from any view, not just while on that tab.
+func renderHeader(theme ui.Theme, w int, portal, user, view string, approvalsCount int) string {
 	tabs := []string{"services", "approvals"}
 	var parts []string
 	for _, t := range tabs {
+		var rendered string
 		if t == view {
-			parts = append(parts, theme.TabActive.Render(t))
+			rendered = theme.TabActive.Render(t)
 		} else {
-			parts = append(parts, theme.TabInactive.Render(t))
+			rendered = theme.TabInactive.Render(t)
 		}
+		if t == "approvals" && approvalsCount > 0 {
+			rendered += theme.CountBadge.Render(fmt.Sprintf(" %d ", approvalsCount))
+		}
+		parts = append(parts, rendered)
 	}
 	left := theme.Title.Render("bsr") + barText(theme, "  ") + strings.Join(parts, barText(theme, "  "))
 	right := theme.Muted.Background(theme.BarBg).Render(fmt.Sprintf("%s  %s", user, portal))

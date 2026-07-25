@@ -29,6 +29,11 @@ type App struct {
 	showHelp     bool
 	w, h         int
 
+	// approvalsCount is the last-known count of pending approvals, tracked
+	// independently of the active view so the header badge is visible from
+	// the services tab too.
+	approvalsCount int
+
 	// confirm gates a destructive action (approve/reject) behind a y/N
 	// prompt; pending is the command it runs once confirmed.
 	confirmText string
@@ -55,7 +60,9 @@ func NewApp(cl *client.Client, portal, user string) App {
 	}
 }
 
-func (a App) Init() tea.Cmd { return loadServices(a.cl, false) }
+func (a App) Init() tea.Cmd {
+	return tea.Batch(loadServices(a.cl, false), loadApprovals(a.cl, false))
+}
 
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
@@ -79,6 +86,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 	case approvalsLoadedMsg:
 		a.approvals = a.approvals.SetItems(m.Items)
+		a.approvalsCount = len(m.Items)
 		return a, nil
 	case bannerMsg:
 		a.banner = m.Text
@@ -243,7 +251,7 @@ func (a App) View() string {
 	if a.h <= 2 || a.w <= 2 {
 		return ""
 	}
-	header := renderHeader(a.theme, a.w, a.portal, a.user, a.active)
+	header := renderHeader(a.theme, a.w, a.portal, a.user, a.active, a.approvalsCount)
 	var body string
 	switch a.active {
 	case "approvals":

@@ -37,6 +37,10 @@ type Services struct {
 	rows     []contracts.MatrixRow // full, unfiltered
 	shown    []contracts.MatrixRow // after filter (1:1 with table rows)
 	w, h     int
+
+	// healthOnly, when true, additionally restricts applyFilter to rows with
+	// at least one problem env (see isUnhealthy) — toggled by "u".
+	healthOnly bool
 }
 
 func NewServices(theme ui.Theme, keys ui.Keys) Services {
@@ -123,6 +127,9 @@ func (s Services) applyFilter() Services {
 		if q != "" && !strings.Contains(strings.ToLower(r.ServiceName+" "+r.ServiceRef), q) {
 			continue
 		}
+		if s.healthOnly && !isUnhealthy(r) {
+			continue
+		}
 		s.shown = append(s.shown, r)
 		row := table.Row{r.ServiceName}
 		for _, e := range matrixEnvs {
@@ -132,6 +139,21 @@ func (s Services) applyFilter() Services {
 	}
 	s.table.SetRows(trows)
 	return s
+}
+
+// isUnhealthy reports whether r has at least one env whose sync or health
+// status is set and not the fully-healthy value — the "unhealthy only" filter
+// keeps exactly these rows.
+func isUnhealthy(row contracts.MatrixRow) bool {
+	for _, d := range row.Envs {
+		if d.SyncStatus != "" && d.SyncStatus != "Synced" {
+			return true
+		}
+		if d.HealthStatus != "" && d.HealthStatus != "Healthy" {
+			return true
+		}
+	}
+	return false
 }
 
 // envCell is the deploy-matrix table cell for one service/env: the tag plus
@@ -273,6 +295,10 @@ func (s Services) Update(msg tea.Msg) (Services, tea.Cmd) {
 			s.filter.Focus()
 			return s.resize(), textinput.Blink
 		}
+		if key.Matches(km, s.keys.ToggleUnhealthy) {
+			s.healthOnly = !s.healthOnly
+			return s.applyFilter(), nil
+		}
 		if km.String() == "enter" {
 			if sel, ok := s.Selected(); ok {
 				s.detail.SetContent(s.detailText(sel))
@@ -290,6 +316,9 @@ func (s Services) View() string {
 		return s.detail.View()
 	}
 	head := s.theme.TableHeader.Render(fmt.Sprintf(" %d services ", len(s.shown)))
+	if s.healthOnly {
+		head += s.theme.Warn.Bold(true).Render("· unhealthy only ")
+	}
 	skip := ""
 	if sel, ok := s.Selected(); ok {
 		skip = sel.ServiceName
