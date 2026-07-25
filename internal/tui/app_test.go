@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/regask/backstage-cli/internal/contracts"
 )
@@ -277,5 +278,47 @@ func TestAppPromoteEmptyEnvKeepsPromptOpen(t *testing.T) {
 	}
 	if cmd != nil {
 		t.Fatalf("expected no launch cmd for empty env, got %v", cmd)
+	}
+}
+
+// hasBindingKey reports whether bindings contains one whose Help().Key
+// matches want.
+func hasBindingKey(bindings []key.Binding, want string) bool {
+	for _, b := range bindings {
+		if b.Help().Key == want {
+			return true
+		}
+	}
+	return false
+}
+
+// TestFooterHintsPerView: the footer must suggest the actions relevant to
+// the active view — approve/reject on approvals, promote/release/filter on
+// services — not a single static global list.
+func TestFooterHintsPerView(t *testing.T) {
+	a := testApp()
+
+	a.active = "approvals"
+	hints := a.footerHints()
+	if !hasBindingKey(hints, a.keys.Approve.Help().Key) {
+		t.Fatalf("approvals footer missing approve hint: %v", hints)
+	}
+	if !hasBindingKey(hints, a.keys.Reject.Help().Key) {
+		t.Fatalf("approvals footer missing reject hint: %v", hints)
+	}
+	if hasBindingKey(hints, a.keys.Promote.Help().Key) {
+		t.Fatalf("approvals footer should not advertise promote: %v", hints)
+	}
+
+	a.active = "services"
+	hints = a.footerHints()
+	if !hasBindingKey(hints, a.keys.Promote.Help().Key) {
+		t.Fatalf("services footer missing promote hint: %v", hints)
+	}
+	if !hasBindingKey(hints, a.keys.Filter.Help().Key) {
+		t.Fatalf("services footer missing filter hint: %v", hints)
+	}
+	if hasBindingKey(hints, a.keys.Approve.Help().Key) {
+		t.Fatalf("services footer should not advertise approve: %v", hints)
 	}
 }

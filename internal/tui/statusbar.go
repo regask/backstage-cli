@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/regask/backstage-cli/internal/tui/ui"
@@ -87,8 +88,10 @@ func renderHeader(theme ui.Theme, w int, portal, user, view string, approvalsCou
 // renderFooter renders the bottom chrome as a full-width, single-line bar:
 // either the key hints (bold key + muted description, · separated) or, when
 // a banner is set, the banner text styled semantically (red for an error,
-// green for success) in its place.
-func renderFooter(theme ui.Theme, w int, keys ui.Keys, banner string, bannerErr bool) string {
+// green for success) in its place. hints is view-scoped — the caller picks
+// the bindings relevant to the active view (see App.footerHints) so the
+// footer suggests actions that actually apply where the user is.
+func renderFooter(theme ui.Theme, w int, hints []key.Binding, banner string, bannerErr bool) string {
 	inner := w - 2
 	if inner < 0 {
 		inner = 0
@@ -102,14 +105,14 @@ func renderFooter(theme ui.Theme, w int, keys ui.Keys, banner string, bannerErr 
 		}
 		content = style.Bold(true).Background(theme.BarBg).Render(banner)
 	} else {
-		var hints []string
-		for _, b := range keys.ShortHelp() {
+		var parts []string
+		for _, b := range hints {
 			h := b.Help()
-			key := theme.Title.Render(h.Key)
+			k := theme.Title.Render(h.Key)
 			desc := theme.Muted.Background(theme.BarBg).Render(h.Desc)
-			hints = append(hints, key+barText(theme, " ")+desc)
+			parts = append(parts, k+barText(theme, " ")+desc)
 		}
-		content = strings.Join(hints, barText(theme, " · "))
+		content = strings.Join(parts, barText(theme, " · "))
 	}
 	content, _ = fitBar(inner, content, "")
 	return theme.Footer.Render(fillBar(theme, inner, content, ""))

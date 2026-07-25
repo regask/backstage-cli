@@ -238,6 +238,19 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return a, cmd
 }
 
+// footerHints returns the key bindings the footer should advertise for the
+// active view: view-scoped actions first, then the global bindings shared by
+// every view.
+func (a App) footerHints() []key.Binding {
+	base := []key.Binding{a.keys.SwitchView, a.keys.Command, a.keys.Refresh, a.keys.Help, a.keys.Quit}
+	switch a.active {
+	case "approvals":
+		return append([]key.Binding{a.keys.Enter, a.keys.Approve, a.keys.Reject}, base...)
+	default: // services
+		return append([]key.Binding{a.keys.Enter, a.keys.Filter, a.keys.ToggleUnhealthy, a.keys.Promote, a.keys.Release}, base...)
+	}
+}
+
 func (a App) refresh() tea.Cmd {
 	if a.active == "approvals" {
 		return loadApprovals(a.cl, true)
@@ -262,7 +275,7 @@ func (a App) View() string {
 	if a.showHelp {
 		body = a.theme.Modal.Render(helpText(a.keys))
 	}
-	footer := renderFooter(a.theme, a.w, a.keys, a.banner, a.bannerErr)
+	footer := renderFooter(a.theme, a.w, a.footerHints(), a.banner, a.bannerErr)
 	switch {
 	case a.cmdBar.Focused():
 		footer = a.cmdBar.View()
