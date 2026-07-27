@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/regask/backstage-cli/compare/v1.4.0...v1.4.1) (2026-07-27)
+
+
+### Bug Fixes
+
+* **plugin:** use backstage-regask binary and document CLI naming vocabulary ([0fc6fb1](https://github.com/regask/backstage-cli/commit/0fc6fb1ea91fc4f2e7395127342a86f4a7bfdea0))
+
 ## [1.4.0](https://github.com/regask/backstage-cli/compare/v1.3.0...v1.4.0) (2026-07-27)
 
 
