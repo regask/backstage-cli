@@ -120,3 +120,17 @@ Push to `main` → release-please computes semver + tags + GitHub Release →
 GoReleaser cross-compiles (macOS arm64/x64, Linux) and pushes a Homebrew **cask**
 to `regask/homebrew-tap`. Users install with `brew install regask/tap/backstage-regask`
 and update with `brew upgrade`. Requires the `HOMEBREW_TAP_TOKEN` CI secret.
+
+### Claude Code plugin (`plugins/backstage-regask/`)
+
+A Claude Code plugin ships from this repo (`plugins/backstage-regask/`,
+marketplace `regask` at `.claude-plugin/marketplace.json`) as a new
+distribution surface alongside the Homebrew cask above. It is a thin wrapper:
+its slash commands and bundled skill shell out to the existing `bsr` binary
+via the Bash tool, so it adds **no new backend contracts** — nothing in the
+contracts/auth model above changes. Read-only commands (`status`, querying an
+approval) pre-authorize their `bsr` invocations via `allowed-tools`; mutating
+actions (`approve`/`reject`, `promote`/`release`/`cherry-pick`) are left
+ungated in the frontmatter and instead gated behind an explicit confirmation
+rule in the bundled skill, consistent with D5's reuse of the existing
+scaffolder workflows.

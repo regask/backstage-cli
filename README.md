@@ -65,6 +65,25 @@ Opens an interactive k9s-style terminal UI (requires `bsr login` first).
 - `?` help
 - `q` quit
 
+## Claude Code plugin
+
+Drive `bsr` from inside Claude Code. Install once:
+
+```
+/plugin marketplace add regask/backstage-cli
+/plugin install backstage-regask@regask
+```
+
+Requires `bsr` installed and `bsr login` done. Commands:
+
+- `/backstage-regask:status [service] [--env <env>]` — deploy versions, env vars, secret refs (masked), ticket deploy state (read-only).
+- `/backstage-regask:approvals [url]` — query an approval, then approve/reject (asks first).
+- `/backstage-regask:release` — promote / release / cherry-pick workflows (asks first).
+- `/backstage-regask:setup` — check sign-in, guide `bsr login`, or `bsr update`.
+
+You can also just ask in plain language ("what's on prod for alert-service") —
+the bundled skill picks the right command. Mutating actions always confirm first.
+
 ## Documentation
 
 Architecture and design decisions: [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md).
