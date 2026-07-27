@@ -126,11 +126,27 @@ and update with `brew upgrade`. Requires the `HOMEBREW_TAP_TOKEN` CI secret.
 A Claude Code plugin ships from this repo (`plugins/backstage-regask/`,
 marketplace `regask` at `.claude-plugin/marketplace.json`) as a new
 distribution surface alongside the Homebrew cask above. It is a thin wrapper:
-its slash commands and bundled skill shell out to the existing `bsr` binary
+its slash commands and bundled skill shell out to the existing binary
 via the Bash tool, so it adds **no new backend contracts** — nothing in the
 contracts/auth model above changes. Read-only commands (`status`, querying an
-approval) pre-authorize their `bsr` invocations via `allowed-tools`; mutating
+approval) pre-authorize their invocations via `allowed-tools`; mutating
 actions (`approve`/`reject`, `promote`/`release`/`cherry-pick`) are left
 ungated in the frontmatter and instead gated behind an explicit confirmation
 rule in the bundled skill, consistent with D5's reuse of the existing
 scaffolder workflows.
+
+The plugin always spells the binary `backstage-regask`, never `bsr`: `bsr` is a
+shell alias the user adds to their profile, and aliases don't resolve in the
+non-interactive Bash tool. `allowed-tools` patterns therefore only list
+`backstage-regask`, keeping the pre-authorized surface to one name.
+
+The skill also carries the CLI's **naming vocabulary**, because neither the CLI
+nor the backend normalizes these and both fail quietly:
+
+- Environments are only `development` / `staging` / `pre-prod` / `production`
+  (`ENVIRONMENTS` in the backend's `deploy-management-backend/src/types.ts`). An
+  unknown `--env` makes `check-deploy` return `[]` with exit 0, and
+  `promote`/`release` forward it to the scaffolder unvalidated.
+- Services are bare catalog names with no `-service` suffix, matched exactly.
+  There is no list-services command, so the skill documents reading
+  `/api/deploy-management/matrix` directly to enumerate them.
