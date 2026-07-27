@@ -1,0 +1,14 @@
+{
+  "name": "regask",
+  "owner": { "name": "Regask", "url": "https://github.com/regask" },
+  "description": "Regask Claude Code plugins",
+  "plugins": [
+    {
+      "name": "backstage-regask",
+      "source": "./plugins/backstage-regask",
+      "description": "Drive the Regask Backstage backend from Claude via the bsr CLI: deploy status, env/secret lookups, ticket lookups, approvals, and promote/release/cherry-pick workflows.",
+      "category": "productivity",
+      "keywords": ["backstage", "deploy", "approvals", "regask", "bsr"]
+    }
+  ]
+}
