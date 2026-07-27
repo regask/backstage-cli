@@ -9,6 +9,8 @@
 
 # SDD progress ledger + scratch (local only)
 /.superpowers/
+# Brainstorm/plan artifacts (local only)
+/docs/superpowers/
 
 # OS / editor
 .DS_Store
