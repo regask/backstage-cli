@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/regask/backstage-cli/compare/v1.3.0...v1.4.0) (2026-07-27)
+
+
+### Features
+
+* **plugin:** add backstage-regask Claude Code plugin ([#8](https://github.com/regask/backstage-cli/issues/8)) ([43c8510](https://github.com/regask/backstage-cli/commit/43c8510ce3df73ef99795fdcdc5ec8ef96bcb1f0))
+
 ## [1.3.0](https://github.com/regask/backstage-cli/compare/v1.2.0...v1.3.0) (2026-07-25)
 
 
