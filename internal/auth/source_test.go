@@ -2,6 +2,9 @@ package auth
 
 import (
 	"context"
+	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -71,5 +74,16 @@ func TestSourceReloadsAfterLock(t *testing.T) {
 	}
 	if len(p.forms) != 0 {
 		t.Fatalf("refreshed despite another process having rotated")
+	}
+}
+
+func TestSourceWithoutSessionIsNotLoggedIn(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := (&Source{Store: NewStore(dir)}).Token(context.Background()); !errors.Is(err, ErrNotLoggedIn) {
+		t.Fatalf("missing config: want ErrNotLoggedIn, got %v", err)
+	}
+	os.WriteFile(filepath.Join(dir, "config.json"), []byte("{corrupt"), 0o600)
+	if _, err := (&Source{Store: NewStore(dir)}).Token(context.Background()); !errors.Is(err, ErrNotLoggedIn) {
+		t.Fatalf("corrupt config: want ErrNotLoggedIn, got %v", err)
 	}
 }

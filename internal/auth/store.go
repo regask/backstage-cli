@@ -75,7 +75,7 @@ func (s *Store) Save(c *Config) error {
 
 // Lock takes an exclusive cross-process lock serializing token refreshes, so
 // two bsr processes never spend the same single-use refresh token.
-func (s *Store) Lock() (unlock func(), err error) {
+func (s *Store) Lock() (func(), error) {
 	if err := os.MkdirAll(s.dir, 0o700); err != nil {
 		return nil, err
 	}

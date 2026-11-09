@@ -94,7 +94,7 @@ minute of expiry (`grant_type=refresh_token`). Backstage rotates refresh
 tokens (single-use), so the refresh runs under an exclusive `flock` on
 `config.lock`, re-reads the config after acquiring it (another process may
 have rotated already), and saves atomically (temp file + rename). A rejected
-refresh (expired/revoked, 30-day default lifetime) means `bsr login` again.
+refresh (400/401: expired/revoked, 30-day default lifetime) means `bsr login` again; `bsr login` saves under the same lock.
 
 **Fallback: `/cli-auth`.** If OIDC isn't enabled, the browser opens the
 portal's **`/cli-auth`** handshake page with the loopback as `redirect_uri`
@@ -119,7 +119,7 @@ A `401` on any command tells the user to run `bsr login`.
 | `find-ticket <TICKET...>` | `POST /deploy-management/ticket-lookup` |
 | `query-approval <link-or-id>` | `GET /approvals/requests/:id` — detail + release link (`resultUrl`) + task backlink |
 | `approve <link-or-id> [--reject]` | `GET` detail, confirm, `POST .../approve`\|`/reject` |
-| `promote --to-env <env> --service <svc…>` | `template:default/promote-code` with `environment` (one of `staging`/`pre-prod`/`production`, validated client-side) and `services` = deduped `owner/repo` slugs read from each entity's `github.com/project-slug` annotation (`GET /catalog/entities/by-name/...`), matching the portal's GitopsServicesPicker. Streams the log; the final status is read from `GET /scaffolder/v2/tasks/:id` because the completion event carries no status |
+| `promote --to-env <env> --service <svc…>` | `template:default/promote-code` with `environment` (one of `staging`/`pre-prod`/`production`, validated client-side) and `services` = deduped `owner/repo` slugs read from each entity's `github.com/project-slug` annotation (`GET /catalog/entities/by-name/...`), matching the portal's GitopsServicesPicker. Streams the log and prints the template output (per-service summary — the task still completes if only some services fail); the final status is read from `GET /scaffolder/v2/tasks/:id` because the completion event carries no status |
 | `release --env [--include-services\|--exclude-services]` / `cherry-pick --tag <TICKET> --branch <release/preprod\|release/prod>` | launch scaffolder templates (`release:*`, `cherry-pick:*`), stream log. release's include/exclude are mutually exclusive; cherry-pick's `--tag` is a ticket ref (e.g. REG-12345) and `--branch` is restricted to `release/preprod`/`release/prod` |
 
 Cross-cutting: `--json` on every command; `--fresh` bypasses the server TTL

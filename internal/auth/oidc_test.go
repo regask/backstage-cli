@@ -134,3 +134,14 @@ func TestRefreshRejectedMapsToSentinel(t *testing.T) {
 		t.Fatalf("refresh form = %v", p.forms[0])
 	}
 }
+
+// Only 400/401 mean the session is dead; a throttled or flaky endpoint must
+// not force a re-login.
+func TestRefreshTransientErrorIsNotRejection(t *testing.T) {
+	p := newFakePortal(t)
+	p.tokenCode, p.tokenBody = 429, `slow down`
+	_, err := Refresh(context.Background(), nil, &Config{PortalURL: p.URL, RefreshToken: "old"})
+	if err == nil || errors.Is(err, ErrTokenRejected) {
+		t.Fatalf("want non-rejection error, got %v", err)
+	}
+}

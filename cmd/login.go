@@ -55,7 +55,14 @@ var loginCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		if err := auth.NewStore(dir).Save(cfg); err != nil {
+		store := auth.NewStore(dir)
+		// Don't let an in-flight refresh overwrite the new session.
+		unlock, err := store.Lock()
+		if err != nil {
+			return err
+		}
+		defer unlock()
+		if err := store.Save(cfg); err != nil {
 			return err
 		}
 		fmt.Println("Logged in to", cfg.PortalURL)

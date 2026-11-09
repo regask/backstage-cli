@@ -2,14 +2,12 @@ package auth
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"slices"
@@ -29,6 +27,9 @@ const (
 // ErrTokenRejected means the token endpoint refused the grant (expired,
 // revoked or already-rotated refresh token); the user must log in again.
 var ErrTokenRejected = errors.New("token request rejected")
+
+// ErrNotLoggedIn means there is no usable stored session.
+var ErrNotLoggedIn = errors.New("not logged in")
 
 func defaultHTTP(hc *http.Client) *http.Client {
 	if hc != nil {
@@ -79,81 +80,40 @@ type OIDCFlow struct {
 
 // Run opens the portal's consent page and exchanges the returned code.
 func (f *OIDCFlow) Run(ctx context.Context) (*Config, error) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return nil, err
-	}
-	defer ln.Close()
-
-	redirect := fmt.Sprintf("http://%s/callback", ln.Addr().String())
-	state, err := randomState()
-	if err != nil {
-		return nil, err
-	}
-	verifier, err := pkceVerifier()
+	verifier, err := randomHex(32)
 	if err != nil {
 		return nil, err
 	}
 	sum := sha256.Sum256([]byte(verifier))
 	challenge := base64.RawURLEncoding.EncodeToString(sum[:])
-
-	codes := make(chan string, 1)
-	errc := make(chan error, 1)
-	mux := http.NewServeMux()
-	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
-		q := r.URL.Query()
-		var err error
-		switch {
-		case q.Get("state") != state:
-			err = fmt.Errorf("callback state mismatch")
-		case q.Get("error") != "":
-			err = fmt.Errorf("login denied: %s %s", q.Get("error"), q.Get("error_description"))
-		case q.Get("code") == "":
-			err = fmt.Errorf("callback missing code")
-		}
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			select {
-			case errc <- err:
-			default:
-			}
-			return
-		}
-		fmt.Fprintln(w, "Login complete — you can close this tab and return to the terminal.")
-		select {
-		case codes <- q.Get("code"):
-		default:
-		}
-	})
-	srv := &http.Server{Handler: mux}
-	go srv.Serve(ln)
-	defer srv.Close()
-
 	clientID := f.Portal + cliClientPath
-	q := url.Values{
-		"client_id":             {clientID},
-		"redirect_uri":          {redirect},
-		"response_type":         {"code"},
-		"scope":                 {"openid offline_access"},
-		"state":                 {state},
-		"code_challenge":        {challenge},
-		"code_challenge_method": {"S256"},
-	}
-	if err := f.OpenBrowser(f.Portal + authBase + "/v1/authorize?" + q.Encode()); err != nil {
-		return nil, err
-	}
 
-	var code string
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case err := <-errc:
+	q, redirect, err := awaitCallback(ctx, func(redirect, state string) error {
+		q := url.Values{
+			"client_id":             {clientID},
+			"redirect_uri":          {redirect},
+			"response_type":         {"code"},
+			"scope":                 {"openid offline_access"},
+			"state":                 {state},
+			"code_challenge":        {challenge},
+			"code_challenge_method": {"S256"},
+		}
+		return f.OpenBrowser(f.Portal + authBase + "/v1/authorize?" + q.Encode())
+	}, func(q url.Values) error {
+		if q.Get("error") != "" {
+			return fmt.Errorf("login denied: %s %s", q.Get("error"), q.Get("error_description"))
+		}
+		if q.Get("code") == "" {
+			return fmt.Errorf("callback missing code")
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, err
-	case code = <-codes:
 	}
 	cfg, err := postToken(ctx, defaultHTTP(f.HTTP), f.Portal, url.Values{
 		"grant_type":    {"authorization_code"},
-		"code":          {code},
+		"code":          {q.Get("code")},
 		"redirect_uri":  {redirect},
 		"code_verifier": {verifier},
 		"client_id":     {clientID},
@@ -165,14 +125,6 @@ func (f *OIDCFlow) Run(ctx context.Context) (*Config, error) {
 		return nil, fmt.Errorf("portal issued no refresh token (offline_access not granted)")
 	}
 	return cfg, nil
-}
-
-func pkceVerifier() (string, error) {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
 // Refresh trades cfg's refresh token for a new access token. Backstage
@@ -195,7 +147,7 @@ func postToken(ctx context.Context, hc *http.Client, portal string, form url.Val
 		return nil, err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+	if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusUnauthorized {
 		b, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("%w (%d): %s", ErrTokenRejected, resp.StatusCode, strings.TrimSpace(string(b)))
 	}

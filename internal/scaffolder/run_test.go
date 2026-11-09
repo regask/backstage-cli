@@ -70,3 +70,16 @@ func TestStreamReportsFailedTask(t *testing.T) {
 		t.Fatalf("status = %q, want failed", status)
 	}
 }
+
+func TestStreamPrintsTemplateOutputSummary(t *testing.T) {
+	d := &fakeDoer{events: [][]byte{
+		[]byte(`[{"id":1,"type":"completion","body":{"message":"Run completed with status: completed","output":{"text":[{"title":"Promotion summary","content":"| regask/a | failed |"}]}}}]`),
+	}, task: `{"status":"completed"}`}
+	buf := &bytes.Buffer{}
+	if _, err := Stream(context.Background(), d, "task-1", buf); err != nil {
+		t.Fatalf("stream: %v", err)
+	}
+	if !strings.Contains(buf.String(), "Promotion summary") || !strings.Contains(buf.String(), "| regask/a | failed |") {
+		t.Fatalf("log = %q", buf.String())
+	}
+}

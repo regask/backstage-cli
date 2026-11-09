@@ -26,6 +26,13 @@ type event struct {
 	Type string `json:"type"`
 	Body struct {
 		Message string `json:"message"`
+		// Set on the completion event: the template's `output`.
+		Output struct {
+			Text []struct {
+				Title   string `json:"title"`
+				Content string `json:"content"`
+			} `json:"text"`
+		} `json:"output"`
 	} `json:"body"`
 }
 
@@ -45,7 +52,7 @@ func Launch(ctx context.Context, d Doer, templateRef string, values map[string]a
 }
 
 // Stream long-polls the task's events, writing log lines to out, until a
-// completion event arrives. Returns the task's terminal status.
+// completion event arrives. Returns the terminal status.
 func Stream(ctx context.Context, d Doer, taskID string, out io.Writer) (string, error) {
 	after := 0
 	for {
@@ -66,6 +73,11 @@ func Stream(ctx context.Context, d Doer, taskID string, out io.Writer) (string, 
 				fmt.Fprintln(out, e.Body.Message)
 			}
 			if e.Type == "completion" {
+				// Templates report per-item results (e.g. promote's per-service
+				// table) here even when the task as a whole completes.
+				for _, t := range e.Body.Output.Text {
+					fmt.Fprintf(out, "\n%s\n%s\n", t.Title, t.Content)
+				}
 				return taskStatus(ctx, d, taskID)
 			}
 		}

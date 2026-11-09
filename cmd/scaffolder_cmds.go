@@ -31,6 +31,8 @@ func runTemplate(ctx context.Context, cl *client.Client, templateRef string, val
 
 // resolveServices maps bare service names to full entity refs in one matrix
 // fetch, so promote/release accept `alert-service` like check-deploy does.
+// The release template keys on the canonical ref (confirm exact form at
+// execution alongside its param names).
 func resolveServices(ctx context.Context, cl *client.Client, names []string) ([]string, error) {
 	rows, err := cl.Matrix(ctx, "", false)
 	if err != nil {

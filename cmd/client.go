@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"strings"
 
 	"github.com/regask/backstage-cli/internal/auth"
@@ -42,7 +41,7 @@ func tokenFn() (string, error) {
 		return "", err
 	}
 	tok, err := (&auth.Source{Store: auth.NewStore(dir)}).Token(context.Background())
-	if errors.Is(err, fs.ErrNotExist) || errors.Is(err, auth.ErrTokenRejected) || (err == nil && tok == "") {
+	if errors.Is(err, auth.ErrNotLoggedIn) || errors.Is(err, auth.ErrTokenRejected) {
 		return "", client.ErrUnauthorized
 	}
 	return tok, err

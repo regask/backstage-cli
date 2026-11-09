@@ -17,8 +17,10 @@ type Source struct {
 	Now   func() time.Time
 }
 
+// Token returns ErrNotLoggedIn without a stored session and ErrTokenRejected
+// when the session can no longer be refreshed.
 func (s *Source) Token(ctx context.Context) (string, error) {
-	cfg, err := s.Store.Load()
+	cfg, err := s.load()
 	if err != nil {
 		return "", err
 	}
@@ -32,7 +34,7 @@ func (s *Source) Token(ctx context.Context) (string, error) {
 	defer unlock()
 	// Another bsr process may have rotated the token while we waited; its
 	// predecessor is now single-use spent and would be rejected.
-	if cfg, err = s.Store.Load(); err != nil {
+	if cfg, err = s.load(); err != nil {
 		return "", err
 	}
 	if !s.needsRefresh(cfg) {
@@ -54,4 +56,12 @@ func (s *Source) needsRefresh(c *Config) bool {
 		now = s.Now
 	}
 	return c.RefreshToken != "" && !c.Expiry.IsZero() && !now().Before(c.Expiry.Add(-expirySkew))
+}
+
+func (s *Source) load() (*Config, error) {
+	cfg, err := s.Store.Load()
+	if err != nil || cfg.Token == "" {
+		return nil, ErrNotLoggedIn
+	}
+	return cfg, nil
 }
