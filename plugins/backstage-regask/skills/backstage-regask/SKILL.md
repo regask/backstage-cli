@@ -49,7 +49,8 @@ A wrong env name fails differently per command, and one of them fails silently:
 | `check-deploy` | **empty result `[]`, exit 0** — indistinguishable from "not deployed". Never report an empty `check-deploy` as "nothing deployed there"; re-check the spelling, or drop `--env` and read the whole matrix. |
 | `check-environment` | errors: `no overlay for env "prod"` |
 | `check-secrets` | masked run succeeds with no vault; `--reveal` errors |
-| `promote --to-env`, `release --env` | **nothing validates it.** The string goes straight to the scaffolder template, so a typo launches a real task with a bad parameter. Only ever pass a canonical name. |
+| `promote --to-env` | errors unless `staging`, `pre-prod`, or `production` (`development` is not a promote target). |
+| `release --env` | **nothing validates it.** The string goes straight to the scaffolder template, so a typo launches a real task with a bad parameter. Only ever pass a canonical name. |
 
 `cherry-pick --branch` takes git branch names, not env names: `release/preprod`
 or `release/prod` are the only accepted values.
@@ -66,8 +67,9 @@ Two related traps:
 
 - The not-found hint blindly prepends the prefix, so passing a full ref
   suggests the nonsense `component:default/component:default/alert`. Ignore it.
-- Any argument containing `/` is passed through **unvalidated** — on mutating
-  commands a typo'd full ref reaches the scaffolder template as-is.
+- Any argument containing `/` is passed through **unvalidated** — on `release`
+  a typo'd full ref reaches the scaffolder template as-is. (`promote` looks
+  each ref up in the catalog, so a typo errors before launching.)
 
 #### Naming patterns
 

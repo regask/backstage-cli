@@ -22,10 +22,9 @@ type Doer interface {
 }
 
 type event struct {
-	ID     int    `json:"id"`
-	Type   string `json:"type"`
-	Status string `json:"status"`
-	Body   struct {
+	ID   int    `json:"id"`
+	Type string `json:"type"`
+	Body struct {
 		Message string `json:"message"`
 	} `json:"body"`
 }
@@ -46,7 +45,7 @@ func Launch(ctx context.Context, d Doer, templateRef string, values map[string]a
 }
 
 // Stream long-polls the task's events, writing log lines to out, until a
-// completion event arrives. Returns the terminal status.
+// completion event arrives. Returns the task's terminal status.
 func Stream(ctx context.Context, d Doer, taskID string, out io.Writer) (string, error) {
 	after := 0
 	for {
@@ -67,11 +66,7 @@ func Stream(ctx context.Context, d Doer, taskID string, out io.Writer) (string, 
 				fmt.Fprintln(out, e.Body.Message)
 			}
 			if e.Type == "completion" {
-				status := e.Status
-				if status == "" {
-					status = "completed"
-				}
-				return status, nil
+				return taskStatus(ctx, d, taskID)
 			}
 		}
 		if len(batch) == 0 {
@@ -84,4 +79,19 @@ func Stream(ctx context.Context, d Doer, taskID string, out io.Writer) (string, 
 			}
 		}
 	}
+}
+
+// taskStatus reads the status from the task itself: the completion event body
+// carries only a message, never the status.
+func taskStatus(ctx context.Context, d Doer, taskID string) (string, error) {
+	var task struct {
+		Status string `json:"status"`
+	}
+	if err := d.GetJSON(ctx, "/scaffolder/v2/tasks/"+url.PathEscape(taskID), nil, false, &task); err != nil {
+		return "", err
+	}
+	if task.Status == "" {
+		return "", fmt.Errorf("task %s returned no status", taskID)
+	}
+	return task.Status, nil
 }

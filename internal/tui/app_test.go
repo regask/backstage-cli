@@ -132,7 +132,8 @@ func TestAppRejectConfirmFlow(t *testing.T) {
 // env and the selected service ref.
 func TestAppPromoteEnvPromptFlow(t *testing.T) {
 	a := testApp()
-	a.cl = newFakeClient(`{"id":"task-1"}`)
+	var posted []string
+	a.cl = newPromoteFakeClient(&posted)
 	m, _ := a.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	a = m.(App)
 	a.services = a.services.SetRows([]contracts.MatrixRow{
@@ -257,7 +258,8 @@ func TestAppTabIgnoredDuringFilter(t *testing.T) {
 // the prompt stays active for the user to type a value.
 func TestAppPromoteEmptyEnvKeepsPromptOpen(t *testing.T) {
 	a := testApp()
-	a.cl = newFakeClient(`{"id":"task-1"}`)
+	var posted []string
+	a.cl = newPromoteFakeClient(&posted)
 	m, _ := a.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	a = m.(App)
 	a.services = a.services.SetRows([]contracts.MatrixRow{

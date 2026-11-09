@@ -31,8 +31,6 @@ func runTemplate(ctx context.Context, cl *client.Client, templateRef string, val
 
 // resolveServices maps bare service names to full entity refs in one matrix
 // fetch, so promote/release accept `alert-service` like check-deploy does.
-// The scaffolder templates key on the canonical ref (confirm exact form at
-// execution alongside the template param names).
 func resolveServices(ctx context.Context, cl *client.Client, names []string) ([]string, error) {
 	rows, err := cl.Matrix(ctx, "", false)
 	if err != nil {
@@ -89,10 +87,11 @@ var promoteCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		// toEnvironment/services param names: confirm against the promote-code
-		// template at execution.
-		values := map[string]any{"toEnvironment": promoteToEnv, "services": svcRefs}
-		return runTemplate(ctx, cl, "template:default/promote-code", values)
+		values, err := scaffolder.PromoteValues(ctx, cl, promoteToEnv, svcRefs)
+		if err != nil {
+			return err
+		}
+		return runTemplate(ctx, cl, scaffolder.PromoteTemplate, values)
 	},
 }
 
@@ -157,7 +156,7 @@ var cherryPickCmd = &cobra.Command{
 }
 
 func init() {
-	promoteCmd.Flags().StringVar(&promoteToEnv, "to-env", "", "target environment to promote to, e.g. staging (required)")
+	promoteCmd.Flags().StringVar(&promoteToEnv, "to-env", "", "target environment: "+strings.Join(scaffolder.PromoteTargets, ", ")+" (required)")
 	promoteCmd.Flags().StringSliceVar(&promoteServices, "service", nil, "service(s) to promote — repeatable or comma-separated (required)")
 	releaseCmd.Flags().StringVar(&releaseEnv, "env", "", "environment to release (required)")
 	releaseCmd.Flags().StringVar(&releaseVersion, "version", "", "override shared-actions release version (prod only)")
