@@ -31,11 +31,11 @@ func extractRedirectURI(startURL string) string {
 	return u.Query().Get("redirect_uri")
 }
 
-// randomState returns a CSRF token tying the browser handoff to this process.
-// It errors rather than falling back to a predictable value, which would
-// defeat the CSRF check.
-func randomState() (string, error) {
-	b := make([]byte, 16)
+// randomHex returns n random bytes hex-encoded, for CSRF states and PKCE
+// verifiers. It errors rather than falling back to a predictable value, which
+// would defeat both checks.
+func randomHex(n int) (string, error) {
+	b := make([]byte, n)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}
@@ -52,71 +52,92 @@ func pairingCode() string {
 	return strings.ToUpper(hex.EncodeToString(b))
 }
 
-// Run starts an ephemeral loopback server, opens the browser to the portal's
-// /cli-auth handshake page with the loopback as redirect_uri, and blocks until
-// the callback delivers the token (or ctx is cancelled). A random state ties
-// the callback to this process so another local process can't inject a token.
-func (f *LoginFlow) Run(ctx context.Context) (*Config, error) {
+// awaitCallback serves a one-shot loopback /callback, calls open with its
+// redirect URI and a fresh CSRF state, and blocks until a callback passes the
+// state check and check (or ctx is cancelled). The random state ties the
+// callback to this process so another local process can't inject a result.
+func awaitCallback(ctx context.Context, open func(redirect, state string) error, check func(url.Values) error) (q url.Values, redirect string, err error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer ln.Close()
 
-	redirect := fmt.Sprintf("http://%s/callback", ln.Addr().String())
-	state, err := randomState()
+	redirect = fmt.Sprintf("http://%s/callback", ln.Addr().String())
+	state, err := randomHex(16)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	code := pairingCode()
-	result := make(chan *Config, 1)
+	result := make(chan url.Values, 1)
 	errc := make(chan error, 1)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
+		var err error
 		if q.Get("state") != state {
-			http.Error(w, "state mismatch", http.StatusBadRequest)
-			errc <- fmt.Errorf("callback state mismatch")
-			return
+			err = fmt.Errorf("callback state mismatch")
+		} else {
+			err = check(q)
 		}
-		tok := q.Get("token")
-		if tok == "" {
-			http.Error(w, "missing token", http.StatusBadRequest)
-			errc <- fmt.Errorf("callback missing token")
-			return
-		}
-		cfg := &Config{PortalURL: f.Portal, Token: tok, RefreshToken: q.Get("refreshToken")}
-		if exp := q.Get("expiry"); exp != "" {
-			if t, perr := time.Parse(time.RFC3339, exp); perr == nil {
-				cfg.Expiry = t
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			select {
+			case errc <- err:
+			default:
 			}
+			return
 		}
 		fmt.Fprintln(w, "Login complete — you can close this tab and return to the terminal.")
-		result <- cfg
+		select {
+		case result <- q:
+		default:
+		}
 	})
 
 	srv := &http.Server{Handler: mux}
 	go srv.Serve(ln)
 	defer srv.Close()
 
+	if err := open(redirect, state); err != nil {
+		return nil, "", err
+	}
+	select {
+	case <-ctx.Done():
+		return nil, "", ctx.Err()
+	case err := <-errc:
+		return nil, "", err
+	case q := <-result:
+		return q, redirect, nil
+	}
+}
+
+// Run opens the browser to the portal's /cli-auth handshake page and blocks
+// until the callback delivers the token (or ctx is cancelled).
+func (f *LoginFlow) Run(ctx context.Context) (*Config, error) {
+	code := pairingCode()
 	if f.Announce != nil {
 		f.Announce(code)
 	}
-	startURL := fmt.Sprintf(
-		"%s/cli-auth?redirect_uri=%s&state=%s&code=%s",
-		f.Portal, url.QueryEscape(redirect), url.QueryEscape(state), url.QueryEscape(code),
-	)
-	if err := f.OpenBrowser(startURL); err != nil {
+	q, _, err := awaitCallback(ctx, func(redirect, state string) error {
+		return f.OpenBrowser(fmt.Sprintf(
+			"%s/cli-auth?redirect_uri=%s&state=%s&code=%s",
+			f.Portal, url.QueryEscape(redirect), url.QueryEscape(state), url.QueryEscape(code),
+		))
+	}, func(q url.Values) error {
+		if q.Get("token") == "" {
+			return fmt.Errorf("callback missing token")
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
-
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case err := <-errc:
-		return nil, err
-	case cfg := <-result:
-		return cfg, nil
+	cfg := &Config{PortalURL: f.Portal, Token: q.Get("token"), RefreshToken: q.Get("refreshToken")}
+	if exp := q.Get("expiry"); exp != "" {
+		if t, perr := time.Parse(time.RFC3339, exp); perr == nil {
+			cfg.Expiry = t
+		}
 	}
+	return cfg, nil
 }

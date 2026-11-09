@@ -20,6 +20,21 @@ func newFakeClient(body string) *client.Client {
 	return client.New("https://p", func() (string, error) { return "t", nil }, hc)
 }
 
+// newPromoteFakeClient answers catalog lookups with a project slug and task
+// creation with task-1, recording each POST body into posted.
+func newPromoteFakeClient(posted *[]string) *client.Client {
+	hc := &http.Client{Transport: rtFunc(func(r *http.Request) (*http.Response, error) {
+		body := `{"metadata":{"annotations":{"github.com/project-slug":"regask/svc"}}}`
+		if r.Method == http.MethodPost {
+			b, _ := io.ReadAll(r.Body)
+			*posted = append(*posted, string(b))
+			body = `{"id":"task-1"}`
+		}
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body)), Header: http.Header{}}, nil
+	})}
+	return client.New("https://p", func() (string, error) { return "t", nil }, hc)
+}
+
 func TestLoadServicesEmitsRows(t *testing.T) {
 	cl := newFakeClient(`[{"serviceRef":"component:default/svc","serviceName":"svc","envs":{"production":{"tag":"v1","syncStatus":"Synced","healthStatus":"Healthy"}}}]`)
 	msg := loadServices(cl, false)()

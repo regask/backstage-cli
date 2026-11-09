@@ -31,8 +31,6 @@ func runTemplate(ctx context.Context, cl *client.Client, templateRef string, val
 
 // resolveServices maps bare service names to full entity refs in one matrix
 // fetch, so promote/release accept `alert-service` like check-deploy does.
-// The scaffolder templates key on the canonical ref (confirm exact form at
-// execution alongside the template param names).
 func resolveServices(ctx context.Context, cl *client.Client, names []string) ([]string, error) {
 	rows, err := cl.Matrix(ctx, "", false)
 	if err != nil {
@@ -62,11 +60,11 @@ func resolveServices(ctx context.Context, cl *client.Client, names []string) ([]
 var (
 	promoteToEnv    string
 	promoteServices []string
+	promoteTag      string
 	releaseEnv      string
-	releaseVersion  string
-	releaseInclude  []string
+	releaseVersion  int
 	releaseExclude  []string
-	cpTag           string
+	cpTickets       []string
 	cpBranch        string
 )
 
@@ -89,10 +87,11 @@ var promoteCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		// toEnvironment/services param names: confirm against the promote-code
-		// template at execution.
-		values := map[string]any{"toEnvironment": promoteToEnv, "services": svcRefs}
-		return runTemplate(ctx, cl, "template:default/promote-code", values)
+		values, err := scaffolder.PromoteValues(ctx, cl, promoteToEnv, svcRefs, promoteTag)
+		if err != nil {
+			return err
+		}
+		return runTemplate(ctx, cl, scaffolder.PromoteTemplate, values)
 	},
 }
 
@@ -103,67 +102,49 @@ var releaseCmd = &cobra.Command{
 		if releaseEnv == "" {
 			return fmt.Errorf("--env is required")
 		}
-		if len(releaseInclude) > 0 && len(releaseExclude) > 0 {
-			return fmt.Errorf("--include-services and --exclude-services are mutually exclusive")
-		}
 		cl, err := newClient()
 		if err != nil {
 			return err
 		}
 		ctx := context.Background()
-		values := map[string]any{"environment": releaseEnv}
-		if releaseVersion != "" {
-			values["version"] = releaseVersion
-		}
-		if len(releaseInclude) > 0 {
-			refs, err := resolveServices(ctx, cl, releaseInclude)
-			if err != nil {
-				return err
-			}
-			values["includeServices"] = refs
-		}
+		var refs []string
 		if len(releaseExclude) > 0 {
-			refs, err := resolveServices(ctx, cl, releaseExclude)
-			if err != nil {
+			if refs, err = resolveServices(ctx, cl, releaseExclude); err != nil {
 				return err
 			}
-			values["excludeServices"] = refs
 		}
-		return runTemplate(ctx, cl, "template:default/release", values)
+		values, err := scaffolder.ReleaseValues(ctx, cl, releaseEnv, refs, releaseVersion)
+		if err != nil {
+			return err
+		}
+		return runTemplate(ctx, cl, scaffolder.ReleaseTemplate, values)
 	},
 }
 
-// cherryPickBranches are the only release branches cherry-pick may target.
-var cherryPickBranches = []string{"release/preprod", "release/prod"}
-
 var cherryPickCmd = &cobra.Command{
 	Use:   "cherry-pick",
-	Short: "Cherry-pick a ticket onto a release branch (one PR per repo)",
+	Short: "Cherry-pick tickets onto a release branch (one PR per repo)",
 	RunE: func(c *cobra.Command, _ []string) error {
-		if cpTag == "" {
-			return fmt.Errorf("--tag is required (a ticket reference, e.g. REG-12345)")
-		}
-		switch cpBranch {
-		case "release/preprod", "release/prod":
-		default:
-			return fmt.Errorf("--branch must be one of: %s", strings.Join(cherryPickBranches, ", "))
+		values, err := scaffolder.CherryPickValues(cpTickets, cpBranch)
+		if err != nil {
+			return err
 		}
 		cl, err := newClient()
 		if err != nil {
 			return err
 		}
-		return runTemplate(context.Background(), cl, "template:default/cherry-pick", map[string]any{"tag": cpTag, "branch": cpBranch})
+		return runTemplate(context.Background(), cl, scaffolder.CherryPickTemplate, values)
 	},
 }
 
 func init() {
-	promoteCmd.Flags().StringVar(&promoteToEnv, "to-env", "", "target environment to promote to, e.g. staging (required)")
+	promoteCmd.Flags().StringVar(&promoteToEnv, "to-env", "", "target environment: "+strings.Join(scaffolder.PromoteTargets, ", ")+" (required)")
 	promoteCmd.Flags().StringSliceVar(&promoteServices, "service", nil, "service(s) to promote — repeatable or comma-separated (required)")
-	releaseCmd.Flags().StringVar(&releaseEnv, "env", "", "environment to release (required)")
-	releaseCmd.Flags().StringVar(&releaseVersion, "version", "", "override shared-actions release version (prod only)")
-	releaseCmd.Flags().StringSliceVar(&releaseInclude, "include-services", nil, "only release these services (comma-separated; mutually exclusive with --exclude-services)")
-	releaseCmd.Flags().StringSliceVar(&releaseExclude, "exclude-services", nil, "release all except these services (comma-separated; mutually exclusive with --include-services)")
-	cherryPickCmd.Flags().StringVar(&cpTag, "tag", "", "ticket reference to cherry-pick, e.g. REG-12345 (required)")
-	cherryPickCmd.Flags().StringVar(&cpBranch, "branch", "", "target release branch: release/preprod or release/prod (required)")
+	promoteCmd.Flags().StringVar(&promoteTag, "tag", "", "source tag to promote (default: latest at the appropriate level)")
+	releaseCmd.Flags().StringVar(&releaseEnv, "env", "", "environment to release: "+strings.Join(scaffolder.ReleaseTargets, ", ")+" (required)")
+	releaseCmd.Flags().IntVar(&releaseVersion, "version", 0, "bump the shared-actions release version (production only)")
+	releaseCmd.Flags().StringSliceVar(&releaseExclude, "exclude-services", nil, "release all except these services (comma-separated)")
+	cherryPickCmd.Flags().StringSliceVar(&cpTickets, "tag", nil, "ticket(s) to cherry-pick, e.g. REG-12345 — repeatable or comma-separated (required)")
+	cherryPickCmd.Flags().StringVar(&cpBranch, "branch", "", "target release branch: "+strings.Join(scaffolder.CherryPickBranches, ", ")+" (required)")
 	RootCmd.AddCommand(promoteCmd, releaseCmd, cherryPickCmd)
 }

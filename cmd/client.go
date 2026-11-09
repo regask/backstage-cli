@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -32,17 +33,18 @@ func resolveServiceRef(ctx context.Context, cl *client.Client, nameOrRef string,
 	return "", fmt.Errorf("no service matching %q (try the full ref, e.g. component:default/%s)", nameOrRef, nameOrRef)
 }
 
-// tokenFn loads the stored token or returns ErrUnauthorized.
+// tokenFn returns the stored token, refreshed if near expiry, or
+// ErrUnauthorized when there is no usable session.
 func tokenFn() (string, error) {
 	dir, err := auth.DefaultDir()
 	if err != nil {
 		return "", err
 	}
-	cfg, err := auth.NewStore(dir).Load()
-	if err != nil || cfg.Token == "" {
+	tok, err := (&auth.Source{Store: auth.NewStore(dir)}).Token(context.Background())
+	if errors.Is(err, auth.ErrNotLoggedIn) || errors.Is(err, auth.ErrTokenRejected) {
 		return "", client.ErrUnauthorized
 	}
-	return cfg.Token, nil
+	return tok, err
 }
 
 // newClient builds a client pointed at the stored portal URL.

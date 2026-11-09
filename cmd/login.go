@@ -33,22 +33,36 @@ var loginCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		flow := &auth.LoginFlow{
-			Portal:      loginURL,
-			OpenBrowser: openBrowser,
-			Announce: func(code string) {
-				fmt.Printf("Confirm this code in your browser: %s\n", code)
-			},
-		}
-		fmt.Println("Opening browser to sign in…")
 		// Don't hang forever if the user never completes the browser flow.
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
-		cfg, err := flow.Run(ctx)
+		fmt.Println("Opening browser to sign in…")
+		var cfg *auth.Config
+		// Prefer the refreshable OIDC login; fall back to the /cli-auth page
+		// (non-refreshable token) while the portal hasn't enabled it.
+		if auth.OIDCAvailable(ctx, nil, loginURL) {
+			cfg, err = (&auth.OIDCFlow{Portal: loginURL, OpenBrowser: openBrowser}).Run(ctx)
+		} else {
+			flow := &auth.LoginFlow{
+				Portal:      loginURL,
+				OpenBrowser: openBrowser,
+				Announce: func(code string) {
+					fmt.Printf("Confirm this code in your browser: %s\n", code)
+				},
+			}
+			cfg, err = flow.Run(ctx)
+		}
 		if err != nil {
 			return err
 		}
-		if err := auth.NewStore(dir).Save(cfg); err != nil {
+		store := auth.NewStore(dir)
+		// Don't let an in-flight refresh overwrite the new session.
+		unlock, err := store.Lock()
+		if err != nil {
+			return err
+		}
+		defer unlock()
+		if err := store.Save(cfg); err != nil {
 			return err
 		}
 		fmt.Println("Logged in to", cfg.PortalURL)

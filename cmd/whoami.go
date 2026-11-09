@@ -7,8 +7,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/regask/backstage-cli/internal/auth"
-	"github.com/regask/backstage-cli/internal/client"
 	"github.com/regask/backstage-cli/internal/render"
 	"github.com/spf13/cobra"
 )
@@ -36,15 +34,11 @@ var whoamiCmd = &cobra.Command{
 	Use:   "whoami",
 	Short: "Show the signed-in user",
 	RunE: func(c *cobra.Command, _ []string) error {
-		dir, err := auth.DefaultDir()
+		tok, err := tokenFn()
 		if err != nil {
 			return err
 		}
-		cfg, err := auth.NewStore(dir).Load()
-		if err != nil || cfg.Token == "" {
-			return client.ErrUnauthorized
-		}
-		sub, err := subjectFromToken(cfg.Token)
+		sub, err := subjectFromToken(tok)
 		if err != nil {
 			return err
 		}

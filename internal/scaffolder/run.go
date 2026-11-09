@@ -22,11 +22,17 @@ type Doer interface {
 }
 
 type event struct {
-	ID     int    `json:"id"`
-	Type   string `json:"type"`
-	Status string `json:"status"`
-	Body   struct {
+	ID   int    `json:"id"`
+	Type string `json:"type"`
+	Body struct {
 		Message string `json:"message"`
+		// Set on the completion event: the template's `output`.
+		Output struct {
+			Text []struct {
+				Title   string `json:"title"`
+				Content string `json:"content"`
+			} `json:"text"`
+		} `json:"output"`
 	} `json:"body"`
 }
 
@@ -67,11 +73,12 @@ func Stream(ctx context.Context, d Doer, taskID string, out io.Writer) (string, 
 				fmt.Fprintln(out, e.Body.Message)
 			}
 			if e.Type == "completion" {
-				status := e.Status
-				if status == "" {
-					status = "completed"
+				// Templates report per-item results (e.g. promote's per-service
+				// table) here even when the task as a whole completes.
+				for _, t := range e.Body.Output.Text {
+					fmt.Fprintf(out, "\n%s\n%s\n", t.Title, t.Content)
 				}
-				return status, nil
+				return taskStatus(ctx, d, taskID)
 			}
 		}
 		if len(batch) == 0 {
@@ -84,4 +91,19 @@ func Stream(ctx context.Context, d Doer, taskID string, out io.Writer) (string, 
 			}
 		}
 	}
+}
+
+// taskStatus reads the status from the task itself: the completion event body
+// carries only a message, never the status.
+func taskStatus(ctx context.Context, d Doer, taskID string) (string, error) {
+	var task struct {
+		Status string `json:"status"`
+	}
+	if err := d.GetJSON(ctx, "/scaffolder/v2/tasks/"+url.PathEscape(taskID), nil, false, &task); err != nil {
+		return "", err
+	}
+	if task.Status == "" {
+		return "", fmt.Errorf("task %s returned no status", taskID)
+	}
+	return task.Status, nil
 }
