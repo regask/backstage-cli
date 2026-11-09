@@ -50,7 +50,7 @@ A wrong env name fails differently per command, and one of them fails silently:
 | `check-environment` | errors: `no overlay for env "prod"` |
 | `check-secrets` | masked run succeeds with no vault; `--reveal` errors |
 | `promote --to-env` | errors unless `staging`, `pre-prod`, or `production` (`development` is not a promote target). |
-| `release --env` | **nothing validates it.** The string goes straight to the scaffolder template, so a typo launches a real task with a bad parameter. Only ever pass a canonical name. |
+| `release --env` | errors unless `pre-prod` or `production`. |
 
 `cherry-pick --branch` takes git branch names, not env names: `release/preprod`
 or `release/prod` are the only accepted values.
@@ -67,9 +67,9 @@ Two related traps:
 
 - The not-found hint blindly prepends the prefix, so passing a full ref
   suggests the nonsense `component:default/component:default/alert`. Ignore it.
-- Any argument containing `/` is passed through **unvalidated** — on `release`
-  a typo'd full ref reaches the scaffolder template as-is. (`promote` looks
-  each ref up in the catalog, so a typo errors before launching.)
+- Any argument containing `/` skips name matching; `promote` and
+  `release --exclude-services` then look it up in the catalog, so a typo'd ref
+  errors before launching.
 
 #### Naming patterns
 
@@ -161,11 +161,11 @@ reimplement git/gitops.
 - **Promote:** `backstage-regask promote --to-env <env> --service <a,b>` — one or
   more services (repeatable or comma-separated). Creates a draft release +
   release-publish approval.
-- **Release an environment:** `backstage-regask release --env <env>` (all
-  services). Narrow with `--include-services <a,b>` OR
-  `--exclude-services <a,b>` (mutually exclusive). `--version <v>` overrides the
-  shared-actions release version (`production` only).
-- **Cherry-pick:** `backstage-regask cherry-pick --tag <TICKET> --branch <branch>`
+- **Release an environment:** `backstage-regask release --env <pre-prod|production>`
+  (all services). Leave services out with `--exclude-services <a,b>` (there is
+  no include list). `--version <n>` bumps the shared-actions release version
+  (`production` only).
+- **Cherry-pick:** `backstage-regask cherry-pick --tag <TICKET[,TICKET]> --branch <branch>`
   where `<branch>` is `release/preprod` or `release/prod` (the only accepted
   values).
 

@@ -57,7 +57,8 @@ func TestPromoteCmdRejectsInvalidTarget(t *testing.T) {
 }
 
 func TestReleaseCmdEmitsResult(t *testing.T) {
-	cl := newFakeClient(`{"id":"task-2"}`)
+	var posted []string
+	cl := newPromoteFakeClient(&posted)
 	msg := releaseCmd(cl, "production")()
 	res, ok := msg.(actionResultMsg)
 	if !ok {
@@ -65,5 +66,9 @@ func TestReleaseCmdEmitsResult(t *testing.T) {
 	}
 	if !res.OK {
 		t.Fatalf("expected OK result, got %+v", res)
+	}
+	want := `{"templateRef":"template:default/release","values":{"environment":"production"}}`
+	if len(posted) != 1 || posted[0] != want {
+		t.Fatalf("posted = %v, want %s", posted, want)
 	}
 }

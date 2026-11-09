@@ -95,6 +95,10 @@ tokens (single-use), so the refresh runs under an exclusive `flock` on
 `config.lock`, re-reads the config after acquiring it (another process may
 have rotated already), and saves atomically (temp file + rename). A rejected
 refresh (400/401: expired/revoked, 30-day default lifetime) means `bsr login` again; `bsr login` saves under the same lock.
+`bsr logout` only deletes the local file: `/api/auth/v1/revoke` requires
+client-secret authentication, which the public CLI client can't do, so the
+server-side refresh session lives until it expires (or is evicted past
+`maxTokensPerUser`).
 
 **Fallback: `/cli-auth`.** If OIDC isn't enabled, the browser opens the
 portal's **`/cli-auth`** handshake page with the loopback as `redirect_uri`
@@ -120,7 +124,8 @@ A `401` on any command tells the user to run `bsr login`.
 | `query-approval <link-or-id>` | `GET /approvals/requests/:id` — detail + release link (`resultUrl`) + task backlink |
 | `approve <link-or-id> [--reject]` | `GET` detail, confirm, `POST .../approve`\|`/reject` |
 | `promote --to-env <env> --service <svc…>` | `template:default/promote-code` with `environment` (one of `staging`/`pre-prod`/`production`, validated client-side) and `services` = deduped `owner/repo` slugs read from each entity's `github.com/project-slug` annotation (`GET /catalog/entities/by-name/...`), matching the portal's GitopsServicesPicker. Streams the log and prints the template output (per-service summary — the task still completes if only some services fail); the final status is read from `GET /scaffolder/v2/tasks/:id` because the completion event carries no status |
-| `release --env [--include-services\|--exclude-services]` / `cherry-pick --tag <TICKET> --branch <release/preprod\|release/prod>` | launch scaffolder templates (`release:*`, `cherry-pick:*`), stream log. release's include/exclude are mutually exclusive; cherry-pick's `--tag` is a ticket ref (e.g. REG-12345) and `--branch` is restricted to `release/preprod`/`release/prod` |
+| `release --env <pre-prod\|production> [--exclude-services] [--version N]` | `template:default/release` with `environment`, optional `excludeServices` (`owner/repo` slugs, as for promote) and `sharedActionsRelease` (positive integer, production only). The template has no include list |
+| `cherry-pick --tag <TICKET…> --branch <release/preprod\|release/prod>` | `template:default/cherry-pick` with `tickets` (array; `1234` or `REG-1234`) and `environment` = the branch suffix (`preprod`/`prod`) |
 
 Cross-cutting: `--json` on every command; `--fresh` bypasses the server TTL
 cache; non-zero exit on failure / rejected approval / failed task.
@@ -133,7 +138,7 @@ confirmed:
 1. ~~Portal CLI login start path~~ — **resolved:** `/cli-auth` page added to the
    portal; CLI sends a CSRF `state` and verifies it on the callback.
 2. The `whoami` identity endpoint.
-3. Scaffolder task/events endpoints + the `release` and `cherry-pick` templates' parameter names (promote-code is confirmed against `templates/promote-code/template.yaml`).
+3. ~~Template parameter names~~ — **resolved:** promote-code, release and cherry-pick builders (`internal/scaffolder/templates.go`) match `templates/*/template.yaml` in the backstage repo.
 4. The runs/task backlink route used in the approval detail view.
 
 Remaining login hardening (login timeout on a stalled browser flow) is still open.
@@ -173,9 +178,9 @@ nor the backend normalizes these and both fail quietly:
 
 - Environments are only `development` / `staging` / `pre-prod` / `production`
   (`ENVIRONMENTS` in the backend's `deploy-management-backend/src/types.ts`). An
-  unknown `--env` makes `check-deploy` return `[]` with exit 0, and `release`
-  forwards it to the scaffolder unvalidated. `promote` accepts only
-  `staging`/`pre-prod`/`production`.
+  unknown `--env` makes `check-deploy` return `[]` with exit 0. `promote`
+  accepts only `staging`/`pre-prod`/`production`, `release` only
+  `pre-prod`/`production`.
 - Services are bare catalog names with no `-service` suffix, matched exactly.
   There is no list-services command, so the skill documents reading
   `/api/deploy-management/matrix` directly to enumerate them.

@@ -50,7 +50,7 @@ changes:** [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md
 
 Remaining endpoint contracts use documented defaults and are marked
 `TODO(execution)` until confirmed against the live backend: the `whoami` identity
-endpoint, and the scaffolder task/events endpoints + the release/cherry-pick
-template params (promote-code is confirmed). Login is resolved: Backstage OIDC
+endpoint and the scaffolder task/events endpoints. Template params
+(promote-code, release, cherry-pick) are confirmed against the backstage repo. Login is resolved: Backstage OIDC
 with refresh tokens, falling back to the `/cli-auth` page + CSRF `state`. See the
 architecture doc's "Deferred backend contracts" section.

@@ -27,12 +27,10 @@ func approveCmd(cl *client.Client, id string, approve bool) tea.Cmd {
 	}
 }
 
-// TODO(execution): confirm template:default/release against the running
-// backend, same as the non-TUI CLI command.
 func promoteCmd(cl *client.Client, toEnv string, services []string) tea.Cmd {
 	return func() tea.Msg {
 		ctx := context.Background()
-		values, err := scaffolder.PromoteValues(ctx, cl, toEnv, services)
+		values, err := scaffolder.PromoteValues(ctx, cl, toEnv, services, "")
 		if err != nil {
 			return errMsg{err}
 		}
@@ -46,8 +44,12 @@ func promoteCmd(cl *client.Client, toEnv string, services []string) tea.Cmd {
 
 func releaseCmd(cl *client.Client, env string) tea.Cmd {
 	return func() tea.Msg {
-		values := map[string]any{"environment": env}
-		id, err := scaffolder.Launch(context.Background(), cl, "template:default/release", values)
+		ctx := context.Background()
+		values, err := scaffolder.ReleaseValues(ctx, cl, env, nil, 0)
+		if err != nil {
+			return errMsg{err}
+		}
+		id, err := scaffolder.Launch(ctx, cl, scaffolder.ReleaseTemplate, values)
 		if err != nil {
 			return errMsg{err}
 		}

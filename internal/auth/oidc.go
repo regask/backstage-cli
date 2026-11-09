@@ -130,10 +130,18 @@ func (f *OIDCFlow) Run(ctx context.Context) (*Config, error) {
 // Refresh trades cfg's refresh token for a new access token. Backstage
 // rotates refresh tokens, so the returned Config must replace cfg.
 func Refresh(ctx context.Context, hc *http.Client, cfg *Config) (*Config, error) {
-	return postToken(ctx, defaultHTTP(hc), cfg.PortalURL, url.Values{
+	next, err := postToken(ctx, defaultHTTP(hc), cfg.PortalURL, url.Values{
 		"grant_type":    {"refresh_token"},
 		"refresh_token": {cfg.RefreshToken},
 	})
+	if err != nil {
+		return nil, err
+	}
+	// RFC 6749 §6 lets a server skip rotation; keep the old token then.
+	if next.RefreshToken == "" {
+		next.RefreshToken = cfg.RefreshToken
+	}
+	return next, nil
 }
 
 func postToken(ctx context.Context, hc *http.Client, portal string, form url.Values) (*Config, error) {

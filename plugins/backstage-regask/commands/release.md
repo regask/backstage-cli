@@ -7,12 +7,11 @@ Use the `backstage-regask` skill. These are mutating workflows that launch
 scaffolder templates:
 
 - `backstage-regask promote --to-env <env> --service <a,b>`
-- `backstage-regask release --env <env>` (optionally `--include-services` XOR `--exclude-services`, `--version`)
-- `backstage-regask cherry-pick --tag <TICKET> --branch <release/preprod|release/prod>`
+- `backstage-regask release --env <pre-prod|production>` (optionally `--exclude-services <a,b>`, `--version <n>` for production)
+- `backstage-regask cherry-pick --tag <TICKET[,TICKET]> --branch <release/preprod|release/prod>`
 
-Resolve the environment and service names BEFORE you print a command to confirm —
-neither `promote --to-env` nor `release --env` validates its value, so a wrong
-name doesn't error, it launches a real scaffolder task with a bad parameter:
+Resolve the environment and service names BEFORE you print a command to confirm,
+so the confirmation shows exactly what will run:
 
 - Environments are exactly `development`, `staging`, `pre-prod`, `production`
   (never `prod`/`dev`/`stg`). `cherry-pick --branch` instead takes

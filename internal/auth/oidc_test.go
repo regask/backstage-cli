@@ -145,3 +145,12 @@ func TestRefreshTransientErrorIsNotRejection(t *testing.T) {
 		t.Fatalf("want non-rejection error, got %v", err)
 	}
 }
+
+func TestRefreshKeepsTokenWhenNotRotated(t *testing.T) {
+	p := newFakePortal(t)
+	p.tokenBody = `{"access_token":"new","expires_in":3600}`
+	next, err := Refresh(context.Background(), nil, &Config{PortalURL: p.URL, RefreshToken: "keep"})
+	if err != nil || next.RefreshToken != "keep" || next.Token != "new" {
+		t.Fatalf("next=%+v err=%v", next, err)
+	}
+}
