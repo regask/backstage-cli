@@ -17,7 +17,7 @@ the short form add `alias bsr=backstage-regask` to your shell profile.
 ## Usage
 
 ```bash
-bsr login                                          # browser sign-in, token cached in ~/.config/backstage-regask
+bsr login                                          # browser sign-in, token cached (and auto-refreshed) in ~/.config/backstage-regask
 bsr whoami
 
 bsr check-deploy alert                             # what version is deployed in every env
@@ -31,7 +31,7 @@ bsr find-ticket ABC-123                            # which envs a ticket is depl
 bsr query-approval https://backstage.regask.com/approvals/<id>   # details + release link (read-only)
 bsr approve https://backstage.regask.com/approvals/<id>          # approve (or --reject)
 
-bsr promote --to-env staging --service a,b         # promote one or more services to an environment
+bsr promote --to-env staging --service a,b         # promote services to staging, pre-prod, or production
 bsr release --env production                       # release an environment (all services)
 bsr release --env production --include-services a,b # only these services (XOR --exclude-services)
 bsr release --env production --exclude-services c  # all except these services
@@ -47,8 +47,9 @@ bsr cherry-pick --tag REG-12345 --branch release/preprod  # cherry-pick a ticket
 - **Environments** are exactly `development`, `staging`, `pre-prod`,
   `production` — there are no short aliases, so `--env prod` is not valid.
   Nothing normalizes the value: `check-deploy --env prod` returns an empty
-  result rather than an error, and `promote`/`release` pass it straight to the
-  scaffolder template.
+  result rather than an error, and `release` passes it straight to the
+  scaffolder template. `promote` accepts only `staging`, `pre-prod`, or
+  `production`.
 - **Services** use their bare catalog name, with no `-service` suffix — `alert`,
   `task-v2`, `alert-event-handler`. `check-deploy <service>` also accepts the
   full ref (`component:default/alert`). Omit `--env` to see all environments.

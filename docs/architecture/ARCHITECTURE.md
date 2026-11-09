@@ -27,7 +27,7 @@ binary by its own name rather than adding a second symlink.
 |---|----------|-----------|
 | D1 | **Standalone repo** (not a package in the backstage monorepo) | Wider distribution to people who don't clone the monorepo. |
 | D2 | **Go + cobra**, single static binary | User wants a true standalone binary; Go gives the smallest binary, trivial cross-compile, and the cleanest `brew install` / `brew upgrade`. |
-| D3 | **Browser OAuth loopback login** (`az login`-style) | The backend gates every route on `httpAuth.credentials(req, {allow:['user']})`, so only a real per-user token works. Rejected static `externalAccess` tokens (shared/opaque, bypasses per-user auth). |
+| D3 | **Browser OAuth loopback login** (`az login`-style) via Backstage's built-in OIDC provider, with refresh tokens | The backend gates every route on `httpAuth.credentials(req, {allow:['user']})`, so only a real per-user token works. Rejected static `externalAccess` tokens (shared/opaque, bypasses per-user auth). The OIDC provider (auth-backend config only, no new backend code) issues rotating refresh tokens so users don't re-login every `backstageTokenExpiration` (8h). Falls back to the `/cli-auth` page while the portal hasn't enabled it. |
 | D4 | **Vendored contracts** (`internal/contracts`) instead of importing `deploy-management-common` | A standalone Go repo can't import the TS backend package; the JSON structs + the pure parsers are small. Parsers must keep **parity** with the backend — see D7. |
 | D5 | **Mutating commands launch existing scaffolder templates** | `promote`/`release`/`cherry-pick` already exist as templates with approval gates; reuse them via the scaffolder API, never reimplement git/gitops. |
 | D6 | **Secrets fetched on demand via local `az`, masked by default** | The gitops overlay holds only secret *references* (Key Vault key names), never values. Values are resolved with the user's `az` session, printed only with `--reveal`, and never persisted. |
@@ -39,11 +39,11 @@ binary by its own name rather than adding a second symlink.
 ```
 cmd/                 cobra commands (thin: parse args → client → render)
 internal/
-  auth/              loopback OAuth login + config/token store (~/.config/backstage-regask/config.json, 0600)
+  auth/              loopback OIDC login (+ /cli-auth fallback), token refresh, config/token store (~/.config/backstage-regask/config.json, 0600)
   client/            typed HTTP client; injects bearer token; ?refresh=1 on --fresh; 401 → ErrUnauthorized
   contracts/         Go structs mirroring backend JSON + ports of parseEnvFile/mergeMaps/parseSecretRefs (parity with deploy-management-common)
   az/                injectable wrapper around `az keyvault secret show`
-  scaffolder/        launch a template task + stream /tasks/:id/events
+  scaffolder/        launch a template task + stream /tasks/:id/events; promote-code params
   render/            --json vs table output helper
 ```
 
@@ -73,18 +73,41 @@ commands are unit-tested without side effects.
 
 ## Auth flow
 
-`bsr login` → ephemeral `127.0.0.1:0` loopback server → open browser to the
-portal's **`/cli-auth`** handshake page with the loopback as `redirect_uri` plus
-a random CSRF `state` → the page (a normal authenticated app route, so it forces
-sign-in first if needed) reads the signed-in user's Backstage identity token via
-`identityApi.getCredentials()` and redirects back to the loopback with
-`token` + `state` → the CLI verifies `state`, captures the token, and persists to
-`~/.config/backstage-regask/config.json` (mode 0600). A `401` on any command
-tells the user to run `bsr login`.
+`bsr login` first checks whether the portal's auth-backend exposes its
+built-in OIDC provider with refresh tokens: `GET /api/auth/.well-known/oauth-client/cli.json`
+returns 200 (needs `auth.experimentalClientIdMetadataDocuments.enabled`) and
+`/api/auth/.well-known/openid-configuration` lists the `refresh_token` grant
+(needs `auth.experimentalRefreshToken.enabled`).
 
-The `/cli-auth` page lives in the Regask portal (`packages/app/src/modules/cli-auth`
-in the backstage repo). The loopback only accepts `http://127.0.0.1|localhost`
-redirect targets, so a token is never handed off-machine.
+**OIDC (preferred).** Authorization code + PKCE (S256) as the public client
+the backend publishes at that `cli.json` URL. Ephemeral `127.0.0.1:0`
+loopback (the backend ignores the port for loopback redirects) → browser to
+`/api/auth/v1/authorize` with scope `openid offline_access` and a CSRF
+`state` → the portal's consent page (`/oauth2/authorize/:id`, from
+`@backstage/plugin-auth`) → loopback receives `code` + `state` → CLI verifies
+`state` and exchanges the code at `/api/auth/v1/token`. The access token
+(~1h), refresh token and expiry are persisted to
+`~/.config/backstage-regask/config.json` (mode 0600).
+
+**Refresh.** Before each request the token source refreshes a token within a
+minute of expiry (`grant_type=refresh_token`). Backstage rotates refresh
+tokens (single-use), so the refresh runs under an exclusive `flock` on
+`config.lock`, re-reads the config after acquiring it (another process may
+have rotated already), and saves atomically (temp file + rename). A rejected
+refresh (expired/revoked, 30-day default lifetime) means `bsr login` again.
+
+**Fallback: `/cli-auth`.** If OIDC isn't enabled, the browser opens the
+portal's **`/cli-auth`** handshake page with the loopback as `redirect_uri`
+plus a random CSRF `state` → the page (a normal authenticated app route, so it
+forces sign-in first if needed) reads the signed-in user's Backstage identity
+token via `identityApi.getCredentials()` and redirects back with `token` +
+`state`. This token can't be refreshed and expires after
+`backstageTokenExpiration`. The page lives in the Regask portal
+(`packages/app/src/modules/cli-auth` in the backstage repo) and only accepts
+`http://127.0.0.1|localhost` redirect targets, so a token is never handed
+off-machine.
+
+A `401` on any command tells the user to run `bsr login`.
 
 ## Command → backend map
 
@@ -96,7 +119,8 @@ redirect targets, so a token is never handed off-machine.
 | `find-ticket <TICKET...>` | `POST /deploy-management/ticket-lookup` |
 | `query-approval <link-or-id>` | `GET /approvals/requests/:id` — detail + release link (`resultUrl`) + task backlink |
 | `approve <link-or-id> [--reject]` | `GET` detail, confirm, `POST .../approve`\|`/reject` |
-| `promote --to-env <env> --service <svc…>` / `release --env [--include-services\|--exclude-services]` / `cherry-pick --tag <TICKET> --branch <release/preprod\|release/prod>` | launch scaffolder templates (`regask:github:promote`, `release:*`, `cherry-pick:*`), stream log. promote takes one+ required services; release's include/exclude are mutually exclusive; cherry-pick's `--tag` is a ticket ref (e.g. REG-12345) and `--branch` is restricted to `release/preprod`/`release/prod` |
+| `promote --to-env <env> --service <svc…>` | `template:default/promote-code` with `environment` (one of `staging`/`pre-prod`/`production`, validated client-side) and `services` = deduped `owner/repo` slugs read from each entity's `github.com/project-slug` annotation (`GET /catalog/entities/by-name/...`), matching the portal's GitopsServicesPicker. Streams the log; the final status is read from `GET /scaffolder/v2/tasks/:id` because the completion event carries no status |
+| `release --env [--include-services\|--exclude-services]` / `cherry-pick --tag <TICKET> --branch <release/preprod\|release/prod>` | launch scaffolder templates (`release:*`, `cherry-pick:*`), stream log. release's include/exclude are mutually exclusive; cherry-pick's `--tag` is a ticket ref (e.g. REG-12345) and `--branch` is restricted to `release/preprod`/`release/prod` |
 
 Cross-cutting: `--json` on every command; `--fresh` bypasses the server TTL
 cache; non-zero exit on failure / rejected approval / failed task.
@@ -109,10 +133,14 @@ confirmed:
 1. ~~Portal CLI login start path~~ — **resolved:** `/cli-auth` page added to the
    portal; CLI sends a CSRF `state` and verifies it on the callback.
 2. The `whoami` identity endpoint.
-3. Scaffolder task/events endpoints + each template's `templateRef` and parameter names.
+3. Scaffolder task/events endpoints + the `release` and `cherry-pick` templates' parameter names (promote-code is confirmed against `templates/promote-code/template.yaml`).
 4. The runs/task backlink route used in the approval detail view.
 
 Remaining login hardening (login timeout on a stalled browser flow) is still open.
+
+Refreshable login needs the portal to set `auth.experimentalClientIdMetadataDocuments.enabled: true`
+and `auth.experimentalRefreshToken.enabled: true` (backstage repo `app-config.yaml`);
+until then `bsr login` uses the `/cli-auth` fallback.
 
 ## Distribution
 
@@ -145,8 +173,9 @@ nor the backend normalizes these and both fail quietly:
 
 - Environments are only `development` / `staging` / `pre-prod` / `production`
   (`ENVIRONMENTS` in the backend's `deploy-management-backend/src/types.ts`). An
-  unknown `--env` makes `check-deploy` return `[]` with exit 0, and
-  `promote`/`release` forward it to the scaffolder unvalidated.
+  unknown `--env` makes `check-deploy` return `[]` with exit 0, and `release`
+  forwards it to the scaffolder unvalidated. `promote` accepts only
+  `staging`/`pre-prod`/`production`.
 - Services are bare catalog names with no `-service` suffix, matched exactly.
   There is no list-services command, so the skill documents reading
   `/api/deploy-management/matrix` directly to enumerate them.

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 )
 
@@ -55,11 +56,38 @@ func (s *Store) Save(c *Config) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(s.path(), b, 0o600); err != nil {
+	// Write-then-rename so a concurrent bsr process never reads a half-written
+	// file mid token rotation. CreateTemp makes the file 0600.
+	f, err := os.CreateTemp(s.dir, "config-*.json")
+	if err != nil {
 		return err
 	}
-	// WriteFile doesn't tighten perms on pre-existing files; enforce 0600 unconditionally.
-	return os.Chmod(s.path(), 0o600)
+	defer os.Remove(f.Name())
+	if _, err := f.Write(b); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return os.Rename(f.Name(), s.path())
+}
+
+// Lock takes an exclusive cross-process lock serializing token refreshes, so
+// two bsr processes never spend the same single-use refresh token.
+func (s *Store) Lock() (unlock func(), err error) {
+	if err := os.MkdirAll(s.dir, 0o700); err != nil {
+		return nil, err
+	}
+	f, err := os.OpenFile(filepath.Join(s.dir, "config.lock"), os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return nil, err
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+		f.Close()
+		return nil, err
+	}
+	return func() { f.Close() }, nil
 }
 
 func (s *Store) Clear() error {
