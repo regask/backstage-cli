@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.5.0](https://github.com/regask/backstage-cli/compare/v1.4.0...v1.5.0) (2026-11-09)
+
+
+### Features
+
+* [REG-xxxx] add token refresh and fix scaffolder template params ([#11](https://github.com/regask/backstage-cli/issues/11)) ([7293b47](https://github.com/regask/backstage-cli/commit/7293b4705f190f831dfaa385d7877c979045fd7c))
+
+
+### Bug Fixes
+
+* **plugin:** use backstage-regask binary and document CLI naming vocabulary ([0fc6fb1](https://github.com/regask/backstage-cli/commit/0fc6fb1ea91fc4f2e7395127342a86f4a7bfdea0))
+
 ## [1.4.0](https://github.com/regask/backstage-cli/compare/v1.3.0...v1.4.0) (2026-07-27)
 
 
